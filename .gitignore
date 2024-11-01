@@ -1,2 +1,3 @@
 *.ipynb_checkpoints
 xrayenv
+_pycache_/
