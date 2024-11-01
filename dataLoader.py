@@ -6,30 +6,59 @@ import cv2
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 
-def covid_19_data_process(image_path, csv_path, train, train_size = 0.6):
+def get_images_max_min(indices, data):
+    high = low = 0.0
+    for i in indices:
+        img = data[i]['img'][0]
+        ch = np.max(img)
+        cl = np.min(img)
+    high = max(high, ch)
+    low = max(low, cl)
+    return high, low
+
+def process_img(img, high, low, target_width, target_height):
+    img = (img - low) / (high - low)
+    img = cv2.resize(img, (target_width, target_height))
+    return img
+
+def covid_19_data_process(image_path, csv_path, train, random_state = 44, train_size = 0.6):
 
     d = xrv.datasets.COVID19_Dataset(imgpath = image_path, csvpath = csv_path)
-    X, y, low, high, target_width, target_height = [], [], -1024, 1024, 224, 224
 
-    for i in range(len(d)):
+    indices = [i for i in range(len(d))]
+    train_idx, test_idx = train_test_split(indices, train_size = train_size, random_state = random_state)
+    target_width, target_height = 224, 224
 
-        img = d[i]['img'][0]
-        img  = 255 * (img - low) / (high - low)
-        img = cv2.resize(img, (target_width, target_height))
-        label = d[i]['lab'][3]
-
-        X.append(img)
-        y.append(label)
-
-    X = np.array(X).reshape(-1, 1, target_width, target_height)
-    y = np.array(y).reshape(-1, 1)
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 1 - train_size, random_state = 42)
-    print(f"Shape of X_train is {X_train.shape}. Shape of ytrain is {y_train.shape}")
-    print(f"Shape of X_test is {X_test.shape}. Shape of ytest is {y_test.shape}")
     if train:
+        tr_h, tr_l = get_images_max_min(train_idx, d)
+        X_train, y_train = [], []
+
+        for i in train_idx:
+
+            img = d[i]['img'][0]
+            X_train.append(process_img(img, tr_h, tr_l, target_width, target_height))
+            y_train.append(d[i]['lab'][3])
+
+        X_train = np.array(X_train).reshape(-1, 1, target_width, target_height)
+        y_train = np.array(y_train).reshape(-1, 1)
+
+        print(f"Shape of X_train is {X_train.shape}. Shape of ytrain is {y_train.shape}")
         return X_train, y_train
+    
     else:
+        ts_h, ts_l = get_images_max_min(test_idx, d)
+        X_test, y_test = [], []
+
+        for i in test_idx:
+
+            img = d[i]['img'][0]
+            X_test.append(process_img(img, ts_h, ts_l, target_width, target_height))
+            y_test.append(d[i]['lab'][3])      
+
+        X_test = np.array(X_test).reshape(-1, 1, target_width, target_height)
+        y_test = np.array(y_test).reshape(-1, 1)
+        
+        print(f"Shape of X_test is {X_test.shape}. Shape of ytest is {y_test.shape}")
         return X_test, y_test
 
 class Covid19DataSet(Dataset):

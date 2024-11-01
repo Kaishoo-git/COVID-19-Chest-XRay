@@ -31,7 +31,7 @@ def train_model(model, train_loader, epochs, learning_rate = 0.001, criterion = 
     model.train()
 
     for epoch in range(epochs):
-        total_loss, count = 0, 0
+        epoch_loss, count = 0, 0
         for i, (images, labels) in enumerate(train_loader):
             count += 1
             # forward pass
@@ -44,9 +44,9 @@ def train_model(model, train_loader, epochs, learning_rate = 0.001, criterion = 
             loss.backward()
             optimizer.step()
             
-        avg_loss = total_loss / count 
+        epoch_loss = total_loss / count 
 
-        print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}")
+        print(f"Epoch [{epoch+1}/{epochs}], Epoch Loss: {epoch_loss:.4f}")
         
     print("Done!")
     
