@@ -1,6 +1,7 @@
 import torchxrayvision as xrv
 import torch
 import torchvision
+import torchvision.transforms as transforms
 import numpy as np
 import cv2
 from torch.utils.data import Dataset
@@ -89,3 +90,9 @@ class ToTensor:
     def __call__(self, sample):
         inputs, labels = sample
         return torch.from_numpy(inputs), torch.from_numpy(labels)
+    
+transform_random = transforms.Compose([
+    transforms.RandomHorizontalFlip(p = 0.3),
+    transforms.RandomRotation(10),
+    transforms.ToTensor(),
+])
