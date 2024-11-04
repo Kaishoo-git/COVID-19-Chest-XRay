@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
+from torch.optim import lr_scheduler
 
 class ConvNet(nn.Module):
 
@@ -52,52 +52,3 @@ class ConvNetGlobPooling(nn.Module):
         x = torch.sigmoid(self.fc3(x))
         return x
 
-def train_model(model, train_loader, validation_loader, epochs, learning_rate = 0.001, criterion = nn.BCEWithLogitsLoss()):
-    optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
-    
-    print("Training model...")
-    model.train()
-
-    for epoch in range(epochs):
-        epoch_loss, count = 0, 0
-        for i, (images, labels) in enumerate(train_loader):
-            count += 1
-            # forward pass
-            y_preds = model(images)
-            loss = criterion(y_preds, labels)
-            epoch_loss += loss.item()
-
-            # validate model
-            acc = evaluate_model(model, validation_loader)
-
-            # backward prop
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            
-        epoch_loss = epoch_loss / count 
-
-        print(f"Epoch [{epoch+1}/{epochs}] | Accuracy: {acc:.4f} | Epoch Loss: {epoch_loss:.4f}")
-        
-    print("Done!")
-    
-
-def evaluate_model(model, test_loader):
-    with torch.no_grad():
-        tp = tn = fp = fn = 0
-        for image, label in test_loader:
-            output = model(image)
-
-            y_pred = (torch.sigmoid(output) >= 0.5).float()
-            n = len(y_pred)
-            for i in range(n):
-                pred_val, label_val = y_pred[i].item(), label[i].item()
-                tp += (pred_val == label_val == 1)
-                tn += (pred_val == label_val == 0)
-                fp += (pred_val == 1 and label_val == 0)
-                fn += (pred_val == 0 and label_val == 1)
-    acc = (tp + tn) / n
-    f1 = (2 * tp) / (2 * tp + fp + fn) 
-    recall = tp / (tp + fn)
-    precision = tp / (tp + fp)
-    return acc
