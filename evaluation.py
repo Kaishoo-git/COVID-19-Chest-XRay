@@ -8,7 +8,7 @@ import copy
 def train_model(model, train_loader, validation_loader, epochs = 5, \
                 learning_rate = 0.01, grad_criterion = nn.BCEWithLogitsLoss(), validation_criterion = 'acc'):
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.5, patience = 1)
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.7, patience = 1)
     best_model, best_met = copy.deepcopy(model.state_dict()), 0.0
     starttime = time.time()
     
@@ -23,23 +23,23 @@ def train_model(model, train_loader, validation_loader, epochs = 5, \
             else:
                 model.eval  
 
-        for i, (images, labels) in enumerate(train_loader):
-            # forward pass
-            y_preds = model(images)
-            loss = grad_criterion(y_preds, labels)
-            epoch_loss += loss.item()
+            for i, (images, labels) in enumerate(train_loader):
+                # forward pass
+                y_preds = model(images)
+                loss = grad_criterion(y_preds, labels)
+                epoch_loss += loss.item()
+
+                if phase == 'train':
+                    # backward prop
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
 
             if phase == 'train':
-                # backward prop
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+                # scheduler step
+                scheduler.step()
 
-        if phase == 'train':
-            # scheduler step
-            scheduler.step()
-
-        if phase == 'val':            
+        if phase == 'val' and epoch_met > best_met:            
             # validate model
             met = evaluate_model(model, validation_loader, validation_criterion)
             best_met = met

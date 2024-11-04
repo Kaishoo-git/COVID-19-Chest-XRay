@@ -45,17 +45,17 @@ def main():
     # print("Training vanilla model with augmented dataset")
     # train_model(model_12, train_loader, test_loader)
     print("Training global pooling model with vanilla dataset")
-    train_model(model_21, train_loader, test_loader)
+    train_model(model_21, train_loader, validation_loader)
     print("Training global pooling model with augmented dataset")
     train_model(model_22, train_loader, validation_loader)
 
     # Model evaluation
     metric_21_prec = evaluate_model(model_21, test_loader, 'prec') * 100
-    metric_21_rec = evaluate_model(model_21, test_loader, 'rec')
+    metric_21_rec = evaluate_model(model_21, test_loader, 'rec') * 100
     print(f"model 2.1: Precision = {metric_21_prec:.0f}% | Recall = {metric_21_rec:.0f}%")
 
-    metric_22_prec = evaluate_model(model_21, test_loader, 'prec')
-    metric_22_rec = evaluate_model(model_22, test_loader, 'rec')
+    metric_22_prec = evaluate_model(model_21, test_loader, 'prec') * 100
+    metric_22_rec = evaluate_model(model_22, test_loader, 'rec') * 100
     print(f"model 2.2: Precision = {metric_22_prec:.0f}% | Recall = {metric_22_rec:.0f}%")
     
     # Model visualisation with GradCam
