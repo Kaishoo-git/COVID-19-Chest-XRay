@@ -5,10 +5,9 @@ import time
 import copy
 
 # Need to Re consider validation and stepping of gradients
-def train_model(model, train_loader, validation_loader, epochs = 5, \
-                learning_rate = 0.01, grad_criterion = nn.BCEWithLogitsLoss(), validation_criterion = 'acc'):
+def train_model(model, train_loader, validation_loader, epochs = 5, learning_rate = 0.01, grad_criterion = nn.BCEWithLogitsLoss()):
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.7, patience = 1)
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.8, patience = 1)
     best_model, best_met = copy.deepcopy(model.state_dict()), 0.0
     starttime = time.time()
     
@@ -16,36 +15,47 @@ def train_model(model, train_loader, validation_loader, epochs = 5, \
     model.train()
 
     for epoch in range(epochs):
-        epoch_loss = 0.0
         for phase in ['train', 'val']:
+            epoch_loss = tp = fp = fn = n = 0.0
             if phase == 'train':
                 model.train()
             else:
-                model.eval  
+                model.eval()  
+            target_loader = train_loader if phase == 'train' else validation_loader
+            for i, (images, labels) in enumerate(target_loader):
 
-            for i, (images, labels) in enumerate(train_loader):
-                # forward pass
-                y_preds = model(images)
-                loss = grad_criterion(y_preds, labels)
-                epoch_loss += loss.item()
+                with torch.set_grad_enabled(phase == 'train'):
+                    # forward pass
+                    y_preds = model(images)
+                    pred_labels = (torch.sigmoid(y_preds) >= 0.5).float()
+                    loss = grad_criterion(y_preds, labels)
+                    epoch_loss += loss.item()
 
-                if phase == 'train':
-                    # backward prop
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
+                    if phase == 'train':
+                        # backward prop
+                        optimizer.zero_grad()
+                        loss.backward()
+                        optimizer.step()    
+
+                for i in range(len(labels)):
+                    pred_val, label_val = pred_labels[i].item(), labels[i].item() 
+                    tp += 1 if (pred_val == label_val == 1 ) else 0.0
+                    fp += 1 if (pred_val == 1 and label_val == 0) else 0.0
+                    fn += 1 if (pred_val == 0 and label_val == 1) else 0.0
+                    n += 1
+                    
+            epoch_met = (2 * tp) / (2 * tp + fp + fn) 
 
             if phase == 'train':
                 # scheduler step
-                scheduler.step()
+                scheduler.step(epoch_loss)
 
-        if phase == 'val' and epoch_met > best_met:            
-            # validate model
-            met = evaluate_model(model, validation_loader, validation_criterion)
-            best_met = met
-            best_model = copy.deepcopy(model.state_dict())
-
-        print(f"Epoch [{epoch+1}/{epochs}] | Metric Val: {met:.4f} | Epoch Loss: {epoch_loss:.4f}")
+            if phase == 'val' and epoch_met > best_met:            
+                # validate model
+                best_met = epoch_met
+                best_model = copy.deepcopy(model.state_dict())
+                
+        print(f"Epoch [{epoch+1}/{epochs}] | Epoch Metric: {epoch_met:.4f} | Epoch Loss: {epoch_loss:.4f}")
     
     elapsedtime = time.time() - starttime
     mins, sec = elapsedtime//60, elapsedtime%60

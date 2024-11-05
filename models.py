@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import lr_scheduler
+from torchvision import models
 
 class ConvNet(nn.Module):
 
@@ -21,7 +22,7 @@ class ConvNet(nn.Module):
         x = x.view(-1, 16 * 12 * 12)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = F.sigmoid(self.fc3(x))
+        x = self.fc3(x)
         return x
 
 class ConvNetGlobPooling(nn.Module):
@@ -49,6 +50,7 @@ class ConvNetGlobPooling(nn.Module):
         
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = torch.sigmoid(self.fc3(x))
+        x = self.fc3(x)
         return x
 
+ResNet18_Model = models.resnet18(pretrained = True)

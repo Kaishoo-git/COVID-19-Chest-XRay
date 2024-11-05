@@ -9,6 +9,7 @@ from PIL import Image
 from dataLoader import preprocess_image
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
 
 # model = models.resnet50(pretrained=True)
 # model.eval()
@@ -49,3 +50,6 @@ def create_CAM(model, img):
     # Superimpose
     images = np.hstack((np.uint8(255 * img), cam , cam_image))
     Image.fromarray(images)
+
+def imshow(img):
+    plt.imshow(img, cmap = 'gray')
