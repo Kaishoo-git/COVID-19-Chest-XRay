@@ -5,17 +5,17 @@ import numpy as np
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 import cv2
+from PIL import Image
 
-data_transforms = {
-    'vanilla': transforms.Compose([
-    transforms.ToTensor(),
-    ]),
-    'augment': transforms.Compose([
-    transforms.RandomHorizontalFlip(p = 0.3),
-    transforms.RandomRotation(10),
-    transforms.ToTensor(),
-    ]),
-}
+def get_images_max_min(indices, data):
+    high = low = 0.0
+    for i in indices:
+        img = data[i]['img'][0]
+        ch = np.max(img)
+        cl = np.min(img)    
+    high = max(high, ch)
+    low = min(low, cl)
+    return high, low
 
 class Covid19DataSet(Dataset):
 
@@ -24,6 +24,7 @@ class Covid19DataSet(Dataset):
         indices = [i for i in range(len(d))]
         train_idx, temp_idx = train_test_split(indices, train_size = 0.6, random_state = random_state)
         val_idx, test_idx = train_test_split(temp_idx, train_size = 0.5, random_state = random_state)
+        
         match type:
             case 'train':
                 idx = train_idx
@@ -32,18 +33,33 @@ class Covid19DataSet(Dataset):
             case 'test':
                 idx = test_idx
         high, low = get_images_max_min(idx, d)
+
+        data_transforms = {
+            'vanilla': transforms.Compose([
+            transforms.Resize((224,224)),
+            transforms.ToTensor(),
+            ]),
+            'augment': transforms.Compose([
+            transforms.Resize((224,224)),   
+            transforms.RandomHorizontalFlip(p = 0.3),
+            transforms.ToTensor(), 
+            ]),
+        }
+
         self.data = d
         self.high = high
         self.low = low
         self.indices = idx
-
+        if transform not in data_transforms:
+            raise ValueError(f"Unknown transform type: {transform}. Choose from {list(data_transforms.keys())}")
         self.transform = data_transforms[transform]
 
     def __getitem__(self, index):
 
         img = self.data[index]['img'][0]
-        img = (img - self.low) / (self.high - self.low)
-        img = cv2.resize(img, (224, 224))
+        img = img - self.low
+        img = np.divide(img, self.high-self.low)
+        img = Image.fromarray(img)
 
         label = self.data[index]['lab'][3]
         label_tensor = torch.tensor([label], dtype = torch.float)
@@ -57,19 +73,10 @@ class Covid19DataSet(Dataset):
     def __len__(self):
         return len(self.indices)
     
-def get_images_max_min(indices, data):
-    high = low = 0.0
-    for i in indices:
-        img = data[i]['img'][0]
-        ch = np.max(img)
-        cl = np.min(img)
-    high = max(high, ch)
-    low = max(low, cl)
-    return high, low
-
 def preprocess_image(img):
-    low, high = -1024, 1024
-    img = (img - low) / (high - low)
-    img = cv2.resize(img, (224, 224))
-    tensorize = transforms.ToTensor()
-    return tensorize(img)
+    img = img + 1024
+    img = np.divide(img, 2048)
+    pil = Image.fromarray(img)
+    ld = transforms.ToTensor()
+    tensor = ld(pil)
+    return tensor
