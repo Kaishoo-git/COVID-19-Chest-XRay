@@ -8,9 +8,9 @@ class ConvNet(nn.Module):
 
     def __init__(self):
         super(ConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 8, 5)
+        self.conv1 = nn.Conv2d(1, 4, 5)
         self.pool = nn.MaxPool2d(4, 4)
-        self.conv2 = nn.Conv2d(8, 16, 5)
+        self.conv2 = nn.Conv2d(4, 16, 5)
 
         self.fc1 = nn.Linear(16 * 12 * 12, 576)
         self.fc2 = nn.Linear(576, 128)
@@ -29,9 +29,9 @@ class ConvNetGlobPooling(nn.Module):
 
     def __init__(self):
         super(ConvNetGlobPooling, self).__init__()
-        self.conv1 = nn.Conv2d(1, 8, 5)
+        self.conv1 = nn.Conv2d(1, 4, 5)
         self.pool = nn.MaxPool2d(4, 4)
-        self.conv2 = nn.Conv2d(8, 16, 5)
+        self.conv2 = nn.Conv2d(4, 16, 5)
         
         # Global Average Pooling (replaces flattening)
         self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
@@ -53,4 +53,3 @@ class ConvNetGlobPooling(nn.Module):
         x = self.fc3(x)
         return x
 
-ResNet18_Model = models.resnet18(pretrained = True)

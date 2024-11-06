@@ -5,7 +5,7 @@ import time
 import copy
 
 # Need to Re consider validation and stepping of gradients
-def train_model(model, train_loader, validation_loader, epochs = 5, learning_rate = 0.01, grad_criterion = nn.BCEWithLogitsLoss()):
+def train_model(model, train_loader, validation_loader, epochs = 5, learning_rate = 0.1, grad_criterion = nn.BCEWithLogitsLoss()):
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.8, patience = 1)
     best_model, best_met = copy.deepcopy(model.state_dict()), 0.0
@@ -63,12 +63,20 @@ def train_model(model, train_loader, validation_loader, epochs = 5, learning_rat
     print(f"Best validation: {best_met}")
 
     model.load_state_dict(best_model)
-    return model
+    return best_model
     
+def retrain_model(model, train_loader, validation_loader, epochs = 5, learning_rate = 0.1, grad_criterion = nn.BCEWithLogitsLoss()):
+    model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+    for params in model.parameters():
+        params.requires_grad = False
+    num_features = model.fc.in_features
+    model.fc = nn.Linear(num_features, 1)
+    best_model = train_model(model, train_loader, validation_loader, epochs, learning_rate, grad_criterion)
+    return best_model
 
 def evaluate_model(model, test_loader, criteria):
     with torch.no_grad():
-        tp = tn = fp = fn = total = 0
+        tp = tn = fp = fn = total = t = f = 0
         for image, label in test_loader:
             output = model(image)
 
@@ -80,13 +88,15 @@ def evaluate_model(model, test_loader, criteria):
                 tn += (pred_val == label_val == 0)
                 fp += (pred_val == 1 and label_val == 0)
                 fn += (pred_val == 0 and label_val == 1)
+                f += (pred_val == 0)
+                t += (pred_val == 1)
                 total += 1
     match criteria:
         case 'acc':
-            return (tp + tn) / total
+            return ((tp + tn) / total), t, f, total
         case 'rec':
-            return tp / (tp + fn)
+            return tp / (tp + fn), t, f, total
         case 'prec':
-            return tp / (tp + fp)
+            return tp / (tp + fp), t, f, total
         case 'f1':
-            return (2 * tp) / (2 * tp + fp + fn) 
+            return (2 * tp) / (2 * tp + fp + fn), t, f, total
