@@ -17,7 +17,7 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
     print("Training model")
 
     for epoch in range(epochs):
-        epoch_loss, running_correct, t_loss, v_loss, t_acc, v_acc = 0.0, 0.0, [], [], [], []
+        t_loss, v_loss, t_acc, v_acc = [], [], [], []
 
         for phase in ['train', 'val']:
             if phase == 'train':
@@ -26,9 +26,12 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
                 model.eval()  
         
             target_loader = train_loader if phase == 'train' else validation_loader
-            # n_steps = len(target_loader)
+            n_total = running_correct = epoch_loss = 0.0
         
             for i, (images, labels) in enumerate(target_loader):
+                print(images.size(dim=0))
+                n_total += images.size(dim = 0)
+
                 with torch.set_grad_enabled(phase == 'train'):
                     # forward pass
                     y_preds = model(images)
@@ -44,14 +47,14 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
                         optimizer.step()
 
             if phase == 'train':
-                avg_loss, avg_correct = epoch_loss / i, running_correct / i
+                avg_loss, avg_correct = epoch_loss / n_total, running_correct / n_total
                 t_loss.append(avg_loss)
                 t_acc.append(avg_correct)
                 # scheduler step
                 scheduler.step(epoch_loss)    
 
             if phase == 'val':
-                avg_loss, avg_correct = epoch_loss / i, running_correct / i
+                avg_loss, avg_correct = epoch_loss / n_total, running_correct / n_total
                 v_loss.append(avg_loss)
                 v_acc.append(avg_correct)
                 if avg_loss < best_loss:
@@ -77,15 +80,19 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
     
 # Creates a tensorboard AUC curve at the same time
 def get_metrics(model, test_loader, writer):
+    model.eval()
     time_s = time.time()
     g_lab, preds = [], []
     with torch.no_grad():
         tp = tn = fp = fn = t = f = 0
         for j, (images, labels) in enumerate(test_loader):
+
             outputs = model(images)
             probs = torch.sigmoid(outputs)
             y_preds = (torch.sigmoid(outputs) >= 0.5).float()
-            n = len(y_preds)
+            
+            n = y_preds.size(dim = 0)
+
             for i in range(n):
                 pred_val, label_val = y_preds[i].item(), labels[i].item()
                 tp += (pred_val == label_val == 1)
@@ -98,24 +105,22 @@ def get_metrics(model, test_loader, writer):
             preds.append(probs)
             g_lab.append(labels)
 
-        j += 1
-
-        preds = torch.cat(preds, dim = 0)
-        labels = torch.cat(labels, dim = 0)
+        preds = torch.cat(preds, dim = 0) if len(preds) > 1 else torch.tensor(preds[0]) # These are probabilities in order to match the pr curve
+        g_lab = torch.cat(g_lab, dim = 0) if len(g_lab) > 1 else torch.tensor(labels[0])
 
         writer.add_pr_curve('covid19', g_lab, preds, 0)
         writer.close()
 
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0
     prec = tp / (tp + fp) if (tp + fp) > 0 else 0
-    print(f"Precision: {prec} | Recall: {recall} | Positives: {t} | Negatives: {f} | Total: {j}")
+    print(f"Precision: {prec} | Recall: {recall} | Positives: {t} | Negatives: {f} | Total: {n}")
     run_time = time.time() - time_s
     print(f"Time taken: {run_time:.2f}s")
-    return recall, prec, t, f, j
+    return recall, prec, t, f, n
 
 # Note that input_tensor can be a batch of images in a tensor
 def infer(model, input_tensor):
-
+    model.eval()
     outputs = model(input_tensor)
     prob = torch.sigmoid(outputs)
     labels = (prob >= 0.5).float()

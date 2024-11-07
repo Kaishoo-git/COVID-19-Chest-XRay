@@ -5,6 +5,7 @@ import cv2
 import time
 
 def get_cam(model, outputs, input):
+    model.eval()
     time_s = time.time()
     print("Generating heatmap")
     # 1. get the gradient of the output with respect to the parameters of the model
@@ -28,7 +29,7 @@ def get_cam(model, outputs, input):
 
     # 6. relu on top of the heatmap
     #   expression (2) in https://arxiv.org/pdf/1610.02391.pdf
-    heatmap = np.maximum(heatmap, 0)
+    heatmap = np.maximum(heatmap, 0)    # Similar to calling relu
 
     # 7. normalize the heatmap
     heatmap /= torch.max(heatmap)
