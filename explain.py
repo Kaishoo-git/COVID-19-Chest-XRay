@@ -1,55 +1,60 @@
-# import warnings
-# warnings.filterwarnings('ignore')
-# from torchvision import models
-# import requests
-# from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from pytorch_grad_cam import GradCAM
-from pytorch_grad_cam.utils.image import show_cam_on_image #, deprocess_image, preprocess_image
-from PIL import Image
-from dataLoader import preprocess_image
+import torch
 import numpy as np
-import cv2
 import matplotlib.pyplot as plt
+import cv2
+import time
 
-# model = models.resnet50(pretrained=True)
-# model.eval()
-# image_url = "https://th.bing.com/th/id/R.94b33a074b9ceeb27b1c7fba0f66db74?rik=wN27mvigyFlXGg&riu=http%3a%2f%2fimages5.fanpop.com%2fimage%2fphotos%2f31400000%2fBear-Wallpaper-bears-31446777-1600-1200.jpg&ehk=oD0JPpRVTZZ6yizZtGQtnsBGK2pAap2xv3sU3A4bIMc%3d&risl=&pid=ImgRaw&r=0"
-# img = np.array(Image.open(requests.get(image_url, stream=True).raw))
-# img = cv2.resize(img, (224, 224))
-# img = np.float32(img) / 255
-# input_tensor = preprocess_image(img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+def get_cam(model, outputs, input):
+    time_s = time.time()
+    print("Generating heatmap")
+    # 1. get the gradient of the output with respect to the parameters of the model
+    outputs.backward()
 
-# The target for the CAM is the Bear category.
-# As usual for classication, the target is the logit output
-# before softmax, for that category.
-# targets = [ClassifierOutputTarget(295)]
-# target_layers = [model.layer4]
-# with GradCAM(model=model, target_layers=target_layers) as cam:
-#     grayscale_cams = cam(input_tensor=input_tensor, targets=targets)
-#     cam_image = show_cam_on_image(img, grayscale_cams[0, :], use_rgb=True)
-# cam = np.uint8(255*grayscale_cams[0, :])
-# cam = cv2.merge([cam, cam, cam])
-# images = np.hstack((np.uint8(255*img), cam , cam_image))
-# Image.fromarray(images)
+    # 2. get the activations of the last convolutional layer
+    activations = model.get_activations(input).detach()
 
-def create_CAM(model, img):
+    # 3. pull the gradients out of the model
+    gradients = model.get_activations_gradient()
 
-    # Preprocess Image
-    input_tensor = preprocess_image(img)
+    # 4. pool the gradients across the channels
+    pooled_gradients = torch.mean(gradients, dim = [0, 2, 3])
 
-    # Generate CAM Visualisation
-    model.eval()
-    targets = [ClassifierOutputTarget(295)] # To be implemented
-    target_layers = [model.conv2]
-    with GradCAM(model = model, target_layers = target_layers) as cam:
-        grayscale_cams = cam(input_tensor = input_tensor, targets = targets)
-        cam_image = show_cam_on_image(img, grayscale_cams[0, :], use_rgb = True)
-    cam = np.uint8(255 * grayscale_cams[0, :])
-    cam = cv2.merge([cam, cam, cam])
 
-    # Superimpose
-    images = np.hstack((np.uint8(255 * img), cam , cam_image))
-    Image.fromarray(images)
+    # 5. weight the channels by corresponding gradients
+    for i in range(activations.shape[1]):
+        activations[:, i, :, :] *= pooled_gradients[i]
+    #   average the channels of the activations
+    heatmap = torch.mean(activations, dim = 1).squeeze()
 
-def imshow(img):
-    plt.imshow(img, cmap = 'gray')
+    # 6. relu on top of the heatmap
+    #   expression (2) in https://arxiv.org/pdf/1610.02391.pdf
+    heatmap = np.maximum(heatmap, 0)
+
+    # 7. normalize the heatmap
+    heatmap /= torch.max(heatmap)
+
+    # draw the heatmap
+    plt.matshow(heatmap.squeeze())
+    run_time = time.time() - time_s
+    print(f"Heatmap generated in {run_time:.2f}s")
+    return heatmap
+
+def overlay_cam(heatmap, img_numpy):
+    # Convert the heatmap to a numpy array and resize to match the input image
+    heatmap = heatmap.numpy()
+    heatmap = cv2.resize(heatmap, (img_numpy.shape[1], img_numpy.shape[0]))
+    
+    # Normalize heatmap to be in range [0, 255] and apply colormap
+    heatmap = np.uint8(255 * heatmap)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+    
+    # Superimpose heatmap on the original image
+    superimposed_img = heatmap * 0.4 + img_numpy
+    superimposed_img = np.clip(superimposed_img, 0, 255).astype(np.uint8)
+
+    # Plot the superimposed image using matplotlib
+    plt.imshow(superimposed_img)
+    plt.axis('off')
+    plt.show()
+
+    return superimposed_img

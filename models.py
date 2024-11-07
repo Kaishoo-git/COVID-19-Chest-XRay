@@ -53,3 +53,44 @@ class ConvNetGlobPooling(nn.Module):
         x = self.fc3(x)
         return x
 
+class ResNet18(nn.Module):
+    def __init__(self):
+        super(ResNet18, self).__init__()
+        self.resnet = models.resnet18(weights = 'DEFAULT')
+        with torch.no_grad():
+            self.resnet.conv1.weight = nn.Parameter(self.resnet.conv1.weight.mean(dim = 1, keepdim = True))
+        for params in self.resnet.parameters():
+            params.requires_grad = False
+        num_features = self.resnet.fc.in_features
+        self.features = nn.Sequential(
+            self.resnet.conv1,
+            self.resnet.bn1,
+            self.resnet.relu,
+            self.resnet.maxpool,
+            self.resnet.layer1,
+            self.resnet.layer2,
+            self.resnet.layer3,
+            self.resnet.layer4
+        )
+        self.avgpool = self.resnet.avgpool
+        self.fc = nn.Linear(num_features, 1)
+        self.gradients = None
+
+    def forward(self, x):
+        x = self.features(x)
+        # Activate hook right after gradient calculated
+        h = x.register_hook(self.activations_hook)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
+    
+    def activations_hook(self, grad):
+        self.gradients = grad
+
+    def get_activation_gradients(self):
+        return self.gradients
+    
+    def get_activations(self, x):
+        return self.features(x)
+    

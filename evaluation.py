@@ -1,18 +1,20 @@
 import torch
-from torch.optim import lr_scheduler
 import torch.nn as nn
+from torch.optim import lr_scheduler
+from torch.utils.tensorboard import SummaryWriter
+import numpy as np
+import matplotlib.pyplot as plt
 import time
 import copy
-from torch.utils.tensorboard import SummaryWriter
 
 # Creates a tensorboard scalar at the same time
-def train_model(model, train_loader, validation_loader, writer, epochs = 5, learning_rate = 0.1, grad_criterion = nn.BCEWithLogitsLoss()):
+def train_model(model, train_loader, validation_loader, writer1, writer2, epochs = 5, learning_rate = 0.1, grad_criterion = nn.BCEWithLogitsLoss()):
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.8, patience = 1)
     best_model, best_loss, best_acc = copy.deepcopy(model.state_dict()), 9999.9, 0.0
     starttime = time.time()
     
-    print("Training model...")
+    print("Training model")
 
     for epoch in range(epochs):
         epoch_loss, running_correct, t_loss, v_loss, t_acc, v_acc = 0.0, 0.0, [], [], [], []
@@ -57,33 +59,25 @@ def train_model(model, train_loader, validation_loader, writer, epochs = 5, lear
                     best_model = copy.deepcopy(model.state_dict())
             
         print(f"Epoch [{epoch + 1}/{epochs}] |Training Loss: {t_loss[-1]:.4f} | Validation Loss: {v_loss[-1]:.4f}")
-        writer.add_scalar('Loss/training', t_loss[-1], epoch)
-        writer.add_scalar('Loss/validation', v_loss[-1], epoch)
-        writer.add_scalar('Accuracy/training', t_acc[-1], epoch)
-        writer.add_scalar('Accuracy/validation', v_acc[-1], epoch)
-    writer.close()
+        writer1.add_scalar('loss', t_loss[-1], epoch+1)
+        writer1.add_scalar('acc', t_acc[-1], epoch+1)
+        writer2.add_scalar('loss', v_loss[-1], epoch+1)
+        writer2.add_scalar('acc', v_acc[-1], epoch+1)
 
+    writer1.close()
+    writer2.close()
     
     elapsedtime = time.time() - starttime
     mins, sec = elapsedtime//60, elapsedtime%60
-    print(f"Training completed in {mins:.0f}mins {sec:.0f}s")
-    print(f"Best Loss: {best_loss:.4f} | Best Accuracy: {(best_acc*100):.0f}")
+    print(f"Training completed in {mins:.0f}mins {sec:.2f}s")
+    print(f"Best Loss: {best_loss:.4f} | Best Accuracy: {(best_acc * 100):.0f}%")
 
     model.load_state_dict(best_model)
-    return best_model
+    return model
     
-def retrain_model(model, train_loader, validation_loader, writer, epochs = 5, learning_rate = 0.1, grad_criterion = nn.BCEWithLogitsLoss()):
-    with torch.no_grad():
-        model.conv1.weight = nn.Parameter(model.conv1.weight.mean(dim=1, keepdim=True))
-    for params in model.parameters():
-        params.requires_grad = False
-    num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, 1)
-    best_model = train_model(model, train_loader, validation_loader, epochs, learning_rate, grad_criterion)
-    return best_model
-
 # Creates a tensorboard AUC curve at the same time
 def get_metrics(model, test_loader, writer):
+    time_s = time.time()
     g_lab, preds = [], []
     with torch.no_grad():
         tp = tn = fp = fn = t = f = 0
@@ -105,9 +99,28 @@ def get_metrics(model, test_loader, writer):
             g_lab.append(labels)
 
         j += 1
-        preds = torch.stack(preds)
-        labels = torch.stack(labels)
+
+        preds = torch.cat(preds, dim = 0)
+        labels = torch.cat(labels, dim = 0)
+
         writer.add_pr_curve('covid19', g_lab, preds, 0)
         writer.close()
-    recall, prec = tp / (tp + fn), tp / (tp + fp)
+
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+    prec = tp / (tp + fp) if (tp + fp) > 0 else 0
+    print(f"Precision: {prec} | Recall: {recall} | Positives: {t} | Negatives: {f} | Total: {j}")
+    run_time = time.time() - time_s
+    print(f"Time taken: {run_time:.2f}s")
     return recall, prec, t, f, j
+
+# Note that input_tensor can be a batch of images in a tensor
+def infer(model, input_tensor):
+
+    outputs = model(input_tensor)
+    prob = torch.sigmoid(outputs)
+    labels = (prob >= 0.5).float()
+
+    for i in range(prob.size(dim=1)):
+        print(f"Predicted img {i} {'positive' if labels[i].item() == 1 else 'negative'} with probability {prob[i].item():.4f}")
+
+    return outputs
