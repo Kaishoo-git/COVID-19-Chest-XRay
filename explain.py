@@ -3,6 +3,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import time
+from sklearn.decomposition import PCA
+
+def eigen_smooth(heatmap, n_components=1):
+    # Flatten the heatmap for PCA
+    flat_heatmap = heatmap.reshape(-1, 1)
+    
+    # Apply PCA
+    pca = PCA(n_components=n_components)
+    smooth_heatmap = pca.inverse_transform(pca.fit_transform(flat_heatmap))
+    
+    # Reshape back to the original heatmap shape
+    smooth_heatmap = smooth_heatmap.reshape(heatmap.shape)
+    
+    return smooth_heatmap
 
 # Note that input_tensor can be a batch of images in a tensor
 def infer(model, input_tensor):
@@ -17,71 +31,110 @@ def infer(model, input_tensor):
 
     return outputs
     
-def get_cam(model, outputs, input):
+def get_gradcam(model, outputs, inputs):
 
     time_s = time.time()
-    print("Generating heatmap")
-    
-    # Unfreeze gradients for convolution layers
-    for param in model.parameters():
-        param.requires_grad = True
-        
+    # print("Generating heatmap")
+            
     model.eval()
 
     # 1.Extract targeted layer
-    activations = model.get_activations(input)
-
-    # 2. Set a hook at targeted_layer
-    h = activations.register_hook(model.activations_hook)
-
-    # 3. get the gradient of the output with respect to the parameters of the model
-    outputs.backward()
-
-    # 4. pull the gradients out of the model
+    activations = model.get_activations(inputs)
+    # Note that there is no need to create hook as model takes care of that
+    # 2. get the gradient of the output with respect to the parameters of the model
+    outputs.backward(retain_graph=True)
+    
+    # 3. pull the gradients out of the model
     gradients = model.get_activation_gradients()
-    activations = activations.detach()
 
-    # 5. pool the gradients across the channels
+    # 4. pool the gradients across the channels
     pooled_gradients = torch.mean(gradients, dim = [0, 2, 3])
 
-
-    # 6. weight the channels by corresponding gradients
+    # 5. weight the channels by corresponding gradients
     for i in range(activations.shape[1]):
         activations[:, i, :, :] *= pooled_gradients[i]
     #   average the channels of the activations
     heatmap = torch.mean(activations, dim = 1).squeeze()
 
-    # 7. relu on top of the heatmap
+    # 6. relu on top of the heatmap
     #   expression (2) in https://arxiv.org/pdf/1610.02391.pdf
-    heatmap = np.maximum(heatmap, 0)    # Similar to calling relu
+    heatmap = torch.relu(heatmap)    
 
-    # 8. normalize the heatmap
-    heatmap /= torch.max(heatmap)
+    # 7. normalize the heatmap
+    heatmap /= torch.max(heatmap + 1e-8)
 
     # draw the heatmap
-    plt.matshow(heatmap.squeeze())
+    heatmap = heatmap.detach()
+    # plt.matshow(heatmap.squeeze())
     run_time = time.time() - time_s
-    print(f"Heatmap generated in {run_time:.2f}s")
+    # print(f"Heatmap generated in {run_time:.2f}s")
     return heatmap
 
-def overlay_cam(heatmap, img_numpy):
-    # Convert the heatmap to a numpy array and resize to match the input image
-    heatmap = heatmap.numpy()
-    heatmap = cv2.resize(heatmap, (img_numpy.shape[1], img_numpy.shape[0]))
+def get_gradcam_pp(model, outputs, inputs):
+    import time
+    time_s = time.time()
+    # print("Generating Grad-CAM++ heatmap")
     
-    # Normalize heatmap to be in range [0, 255] and apply colormap
-    heatmap = np.uint8(255 * heatmap)
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    
-    # Superimpose heatmap on the original image
-    img_numpy = np.expand_dims(img_numpy, axis = 2)
-    # superimposed_img = heatmap * 0.1 + img_numpy
-    # superimposed_img = np.clip(superimposed_img, 0, 255).astype(np.uint8)
+    model.eval()
 
-    # Plot the superimposed image using matplotlib
-    plt.imshow(img_numpy, cmap = 'gray')
-    plt.imshow(heatmap, alpha=0.3)
-    plt.axis('off')
+    # 1. Extract the targeted layer's activations
+    activations = model.get_activations(inputs)
+    
+    # 2. Compute the first-order gradients with respect to the output
+    outputs.backward()  # This will populate gradients in model.gradients
+    first_order_gradients = model.get_activation_gradients()
+
+    # 3. Compute the second-order gradients
+    gradients_power_2 = first_order_gradients**2
+
+    # 4. Compute the third-order gradients
+    gradients_power_3 = first_order_gradients**3
+
+    # 5. Calculate alpha coefficients using Grad-CAM++ formula
+    sum_activations = torch.sum(activations, axis=(2, 3))
+    alpha = gradients_power_2 / (2 * gradients_power_2 + sum_activations[:, :, None, None] * gradients_power_3 + 1e-8)
+    alpha = torch.relu(alpha)
+
+    # 6. Weight the channels by corresponding alpha * ReLU(gradient)
+    weights = torch.sum(alpha * torch.relu(first_order_gradients), dim=(2, 3), keepdim=True)
+    weighted_activations = activations * weights[:, :, None, None]
+
+    # Step 7: Combine the weighted activations to get the heatmap
+    weighted_activations = activations * weights
+    heatmap = torch.sum(weighted_activations, dim=1).squeeze()
+
+    # Step 8: Apply ReLU to keep only positive influence regions
+    heatmap = torch.relu(heatmap)
+
+    # Step 9: Normalize the heatmap
+    heatmap /= torch.max(heatmap + 1e-8)
+
+    # Draw the heatmap
+    heatmap = heatmap.detach()
+    # plt.matshow(heatmap.squeeze().numpy())
+    run_time = time.time() - time_s
+    # print(f"Grad-CAM++ heatmap generated in {run_time:.2f}s")
+    return heatmap
+
+def vis_comparison(img_numpy, heatmap_gc, heatmap_gcpp, title):
+    # # Display the Grad-CAM and Grad-CAM++ images side by side
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+    fig.suptitle('DenseNet Detection', fontsize=16, fontweight='bold', ha='center')
+
+    heatmap_gc = heatmap_gc.numpy()
+    heatmap_gc = cv2.resize(heatmap_gc, (img_numpy.shape[1], img_numpy.shape[0]), interpolation = cv2.INTER_LINEAR)
+    axes[0].imshow(img_numpy, cmap='gray')
+    axes[0].imshow(heatmap_gc, alpha = 0.2)
+    axes[0].set_title("Grad-CAM")
+    axes[0].axis('off')
+
+    heatmap_gcpp = heatmap_gcpp.numpy()
+    heatmap_gcpp = cv2.resize(heatmap_gcpp, (img_numpy.shape[1], img_numpy.shape[0]), interpolation = cv2.INTER_LINEAR)
+    axes[1].imshow(img_numpy, cmap='gray')
+    axes[1].imshow(heatmap_gcpp, alpha = 0.2)
+    axes[1].set_title("Grad-CAM++")
+    axes[1].axis('off')
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.show()
-
-    # return superimposed_img

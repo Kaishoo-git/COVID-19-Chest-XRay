@@ -57,11 +57,14 @@ class MyResNet18(nn.Module):
     def __init__(self):
         super(MyResNet18, self).__init__()
         self.resnet = models.resnet18(weights = 'DEFAULT')
+        
         with torch.no_grad():
             self.resnet.conv1.weight = nn.Parameter(self.resnet.conv1.weight.mean(dim = 1, keepdim = True))
         for params in self.resnet.parameters():
             params.requires_grad = False
+            
         num_features = self.resnet.fc.in_features
+
         self.features = nn.Sequential(
             self.resnet.conv1,
             self.resnet.bn1,
@@ -73,14 +76,17 @@ class MyResNet18(nn.Module):
             self.resnet.layer4
         )
         self.avgpool = self.resnet.avgpool
-        self.fc = nn.Linear(num_features, 1)
+        self.classifier = nn.Linear(num_features, 1, bias = True)
         self.gradients = None
 
     def forward(self, x):
         x = self.features(x)
+        if x.requires_grad:
+            h = x.register_hook(self.activations_hook)
+            print("Hook registered")
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        x = self.classifier(x)
         return x
     
     def activations_hook(self, grad):
@@ -88,10 +94,47 @@ class MyResNet18(nn.Module):
 
     def get_activation_gradients(self):
         if self.gradients is None:
-            print("Gradient is not set")
+            raise ValueError("Gradients were not captured by the hook. Check hook setup.")
         else:
             return self.gradients
     
     def get_activations(self, x):
         return self.features(x)
     
+class MyDenseNet(nn.Module):
+    def __init__(self):
+        super(MyDenseNet, self).__init__()
+        self.densenet = models.densenet121(weights = 'DEFAULT')
+
+        with torch.no_grad():
+            self.densenet.features.conv0.weight = nn.Parameter(self.densenet.features.conv0.weight.mean(dim=1, keepdim = True))
+        for params in self.densenet.parameters():
+            params.requires_grad = False
+        n_features = self.densenet.classifier.in_features
+        
+        self.features = self.densenet.features
+        self.adpool = nn.AdaptiveAvgPool2d((1,1))
+        self.classifier = nn.Linear(n_features, 1, bias = True)
+        self.gradients = None
+
+    def forward(self, x):
+        x = self.features(x)
+        if x.requires_grad:
+            h = x.register_hook(self.activations_hook)
+            # print("Hook registered")
+        x = self.adpool(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+    
+    def activations_hook(self, grad):
+        self.gradients = grad
+
+    def get_activation_gradients(self):
+        if self.gradients is None:
+            raise ValueError("Gradients were not captured by the hook. Check hook setup.")
+        else:
+            return self.gradients
+    
+    def get_activations(self, x):
+        return self.features(x)

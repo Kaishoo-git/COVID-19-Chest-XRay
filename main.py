@@ -35,7 +35,7 @@ def main():
     print(f"Train size: {len(train_loader)} | Validation size: {len(validation_loader)} | Test size {len(test_loader)}")
     print (f"Time taken: {data_mins:.0f}mins {data_sec:.2f}s")
 
-    ### TensorBoard add sample Images. We will use BATCH_SIZE of 1 for clearer visualisations
+    ### We will use BATCH_SIZE of 1 for clearer visualisations, this would be used for subsequent parts
     vanilla_dataset = Covid19DataSet('train', transform = 'vanilla')
     vanilla_loader = DataLoader(dataset = vanilla_dataset, batch_size = 1, shuffle = False, num_workers = 4)
 
@@ -45,36 +45,58 @@ def main():
     gen = iter(vanilla_loader)
     sample_img, sample_labels = next(gen)
     img_grid = torchvision.utils.make_grid(sample_img)
+
+    # TENSORBOARD: Add sample Images.
     writer1.add_image('xray_images', img_grid)
-    ###
 
     # Model 
     time_build = time.time()
     print("Building resnet18 model (modified)")
-    model = MyResNet18()
+    resnet_v = MyResNet18()
+    densenet_v = MyDenseNet()
     run_time = time.time() - time_build
     print(f"Time taken: {run_time:.2f}s")
 
-    # TensorBoard add Graph for model architecture
-    writer1.add_graph(model, sample_img)
-    writer1.close()
+    # TENSORBOARD: Add Graph for model architecture
+    writer1.add_graph(resnet_v, sample_img)
+    writer1.add_graph(densenet_v, sample_img)
 
     # Model Training, creates a tensorboard scalar 
-    resnet_trained = train_model(model, train_loader, validation_loader, writer1, writer2)
+    resnet = train_model(resnet_v, train_loader, validation_loader, writer1, writer2)
+    densenet = train_model(densenet_v, train_loader, validation_loader, writer1, writer2)
 
-    # Model evaluation, creates a tensorboard AUC curve
-    recall, prec, t, f, n = get_metrics(resnet_trained, test_loader, writer1)
+    # TENSORBOARD: Model evaluation, AUC curve
+    recall, prec, t, f, n = get_metrics(resnet, test_loader, writer1)
     print(f"Total Entries: {n} | Positive Preds: {t} | Negative Preds: {f}")
     print(f"Fine-tuned: Precision = {prec:.0f}% | Recall = {recall:.0f}%")
-    
+
+    # Enable gradients for gradcam and gradcam++
+    for param in resnet.parameters():
+        param.requires_grad = True
+    for param in densenet.parameters():
+        param.requires_grad = True
+
     # Model visualisation with GradCam
-    sample_pred = infer(resnet_trained, sample_img)
+    output_rn = infer(resnet, sample_img)
+    prob_rn = torch.sigmoid(output_rn)
+    label_rn = 'Positive' if prob_rn >= 0.5 else 'Negative'
 
-    # Create heatmap using cam
-    heatmap = get_cam(resnet_trained, sample_pred, sample_img)
+    # Generate heatmaps using Grad-CAM and Grad-CAM++
+    heatmap_gc_rn = get_gradcam(resnet, output_rn, sample_img)
+    heatmap_gcpp_rn = get_gradcam_pp(resnet, output_rn, sample_img)
 
-    # Show image with heatmap overlay
-    overlay_cam(heatmap, img_numpy)
+    vis_comparison(img_numpy, heatmap_gc_rn, heatmap_gcpp_rn, f'ResNet: {label_rn}, {prob_rn*100:.0f}%')
+
+    # Model visualisation with GradCam
+    output_dn = infer(densenet, sample_img)
+    prob_dn = torch.sigmoid(output_dn)
+    label_dn = 'Positive' if prob_dn >= 0.5 else 'Negative'
+
+    # Generate heatmaps using Grad-CAM and Grad-CAM++
+    heatmap_gc_dn = get_gradcam(densenet, output_dn, sample_img)
+    heatmap_gcpp_dn = get_gradcam_pp(densenet, output_dn, sample_img)
+
+    vis_comparison(img_numpy, heatmap_gc_dn, heatmap_gcpp_dn, f'DenseNet: {label_dn}, {prob_dn*100:.0f}%')
 
 
 if __name__ == "__main__":
