@@ -53,9 +53,9 @@ class ConvNetGlobPooling(nn.Module):
         x = self.fc3(x)
         return x
 
-class ResNet18(nn.Module):
+class MyResNet18(nn.Module):
     def __init__(self):
-        super(ResNet18, self).__init__()
+        super(MyResNet18, self).__init__()
         self.resnet = models.resnet18(weights = 'DEFAULT')
         with torch.no_grad():
             self.resnet.conv1.weight = nn.Parameter(self.resnet.conv1.weight.mean(dim = 1, keepdim = True))
@@ -78,8 +78,6 @@ class ResNet18(nn.Module):
 
     def forward(self, x):
         x = self.features(x)
-        # Activate hook right after gradient calculated
-        h = x.register_hook(self.activations_hook)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
@@ -89,7 +87,10 @@ class ResNet18(nn.Module):
         self.gradients = grad
 
     def get_activation_gradients(self):
-        return self.gradients
+        if self.gradients is None:
+            print("Gradient is not set")
+        else:
+            return self.gradients
     
     def get_activations(self, x):
         return self.features(x)

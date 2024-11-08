@@ -29,7 +29,6 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
             n_total = running_correct = epoch_loss = 0.0
         
             for i, (images, labels) in enumerate(target_loader):
-                print(images.size(dim=0))
                 n_total += images.size(dim = 0)
 
                 with torch.set_grad_enabled(phase == 'train'):
@@ -61,7 +60,8 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
                     best_loss, best_acc = avg_loss, avg_correct
                     best_model = copy.deepcopy(model.state_dict())
             
-        print(f"Epoch [{epoch + 1}/{epochs}] |Training Loss: {t_loss[-1]:.4f} | Validation Loss: {v_loss[-1]:.4f}")
+        print(f"Epoch [{epoch + 1}/{epochs}] |Training Loss: {t_loss[-1]:.4f} | Validation Loss: {v_loss[-1]:.4f} | Training Acc: {t_acc[-1]*100:.2f}%")
+        
         writer1.add_scalar('loss', t_loss[-1], epoch+1)
         writer1.add_scalar('acc', t_acc[-1], epoch+1)
         writer2.add_scalar('loss', v_loss[-1], epoch+1)
@@ -72,6 +72,7 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
     
     elapsedtime = time.time() - starttime
     mins, sec = elapsedtime//60, elapsedtime%60
+
     print(f"Training completed in {mins:.0f}mins {sec:.2f}s")
     print(f"Best Loss: {best_loss:.4f} | Best Accuracy: {(best_acc * 100):.0f}%")
 
@@ -80,20 +81,23 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
     
 # Creates a tensorboard AUC curve at the same time
 def get_metrics(model, test_loader, writer):
+
     model.eval()
     time_s = time.time()
     g_lab, preds = [], []
+
     with torch.no_grad():
-        tp = tn = fp = fn = t = f = 0
+        tp = tn = fp = fn = t = f = n = 0
         for j, (images, labels) in enumerate(test_loader):
 
             outputs = model(images)
             probs = torch.sigmoid(outputs)
             y_preds = (torch.sigmoid(outputs) >= 0.5).float()
             
-            n = y_preds.size(dim = 0)
+            k = y_preds.size(dim = 0)
+            n += k
 
-            for i in range(n):
+            for i in range(k):
                 pred_val, label_val = y_preds[i].item(), labels[i].item()
                 tp += (pred_val == label_val == 1)
                 tn += (pred_val == label_val == 0)
@@ -113,19 +117,8 @@ def get_metrics(model, test_loader, writer):
 
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0
     prec = tp / (tp + fp) if (tp + fp) > 0 else 0
-    print(f"Precision: {prec} | Recall: {recall} | Positives: {t} | Negatives: {f} | Total: {n}")
     run_time = time.time() - time_s
+    print(f"Precision: {prec:.4f} | Recall: {recall:.4f} | Positives: {t} | Negatives: {f} | Total: {n}")
     print(f"Time taken: {run_time:.2f}s")
+
     return recall, prec, t, f, n
-
-# Note that input_tensor can be a batch of images in a tensor
-def infer(model, input_tensor):
-    model.eval()
-    outputs = model(input_tensor)
-    prob = torch.sigmoid(outputs)
-    labels = (prob >= 0.5).float()
-
-    for i in range(prob.size(dim=1)):
-        print(f"Predicted img {i} {'positive' if labels[i].item() == 1 else 'negative'} with probability {prob[i].item():.4f}")
-
-    return outputs

@@ -51,13 +51,7 @@ def main():
     # Model 
     time_build = time.time()
     print("Building resnet18 model (modified)")
-    model = models.resnet18(weights = 'DEFAULT')
-    with torch.no_grad():
-        model.conv1.weight = nn.Parameter(model.conv1.weight.mean(dim = 1, keepdim = True))
-    for params in model.parameters():
-        params.requires_grad = False
-    num_features = model.fc.in_features
-    model.fc = nn.Linear(num_features, 1)
+    model = MyResNet18()
     run_time = time.time() - time_build
     print(f"Time taken: {run_time:.2f}s")
 
