@@ -4,6 +4,10 @@ import matplotlib.pyplot as plt
 import cv2
 import time
 from sklearn.decomposition import PCA
+from matplotlib.colors import LinearSegmentedColormap
+
+# Create a custom colormap from white to yellow
+black_yellow_cmap = LinearSegmentedColormap.from_list("black_yellow", ["black", "yellow"])
 
 def eigen_smooth(heatmap, n_components=1):
     # Flatten the heatmap for PCA
@@ -24,10 +28,6 @@ def infer(model, input_tensor):
     model.eval()
     outputs = model(input_tensor)
     prob = torch.sigmoid(outputs)
-    labels = (prob >= 0.5).float()
-
-    for i in range(prob.size(dim=1)):
-        print(f"Predicted img {i} {'positive' if labels[i].item() == 1 else 'negative'} with probability {prob[i].item():.4f}")
 
     return outputs
     
@@ -65,10 +65,9 @@ def get_gradcam(model, outputs, inputs):
 
     # draw the heatmap
     heatmap = heatmap.detach()
-    # plt.matshow(heatmap.squeeze())
-    run_time = time.time() - time_s
-    # print(f"Heatmap generated in {run_time:.2f}s")
-    return heatmap
+    heatmap_np = heatmap.numpy()
+    smooth_heatmap = eigen_smooth(heatmap_np)
+    return smooth_heatmap
 
 def get_gradcam_pp(model, outputs, inputs):
     import time
@@ -111,28 +110,25 @@ def get_gradcam_pp(model, outputs, inputs):
 
     # Draw the heatmap
     heatmap = heatmap.detach()
-    # plt.matshow(heatmap.squeeze().numpy())
-    run_time = time.time() - time_s
-    # print(f"Grad-CAM++ heatmap generated in {run_time:.2f}s")
-    return heatmap
+    heatmap_np = heatmap.numpy()
+    smooth_heatmap = eigen_smooth(heatmap_np)
+    return smooth_heatmap
 
 def vis_comparison(img_numpy, heatmap_gc, heatmap_gcpp, title):
     # # Display the Grad-CAM and Grad-CAM++ images side by side
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
 
-    fig.suptitle('DenseNet Detection', fontsize=16, fontweight='bold', ha='center')
+    fig.suptitle(title, fontsize=16, fontweight='bold', ha='center')
 
-    heatmap_gc = heatmap_gc.numpy()
     heatmap_gc = cv2.resize(heatmap_gc, (img_numpy.shape[1], img_numpy.shape[0]), interpolation = cv2.INTER_LINEAR)
     axes[0].imshow(img_numpy, cmap='gray')
-    axes[0].imshow(heatmap_gc, alpha = 0.2)
+    axes[0].imshow(heatmap_gc, cmap = black_yellow_cmap, alpha = 0.3)
     axes[0].set_title("Grad-CAM")
     axes[0].axis('off')
 
-    heatmap_gcpp = heatmap_gcpp.numpy()
     heatmap_gcpp = cv2.resize(heatmap_gcpp, (img_numpy.shape[1], img_numpy.shape[0]), interpolation = cv2.INTER_LINEAR)
     axes[1].imshow(img_numpy, cmap='gray')
-    axes[1].imshow(heatmap_gcpp, alpha = 0.2)
+    axes[1].imshow(heatmap_gcpp, cmap = black_yellow_cmap, alpha = 0.3)
     axes[1].set_title("Grad-CAM++")
     axes[1].axis('off')
 

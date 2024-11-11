@@ -33,7 +33,7 @@ def main():
     loader_time = time.time() - loader_since
     loader_mins, loader_sec = loader_time//60, loader_time % 50
     print(f"Train size: {len(train_loader)} | Validation size: {len(validation_loader)} | Test size {len(test_loader)}")
-    print (f"Time taken: {data_mins:.0f}mins {data_sec:.2f}s")
+    print (f"Time taken: {loader_mins:.0f}mins {loader_sec:.2f}s")
 
     ### We will use BATCH_SIZE of 1 for clearer visualisations, this would be used for subsequent parts
     vanilla_dataset = Covid19DataSet('train', transform = 'vanilla')
@@ -41,6 +41,7 @@ def main():
 
     d = xrv.datasets.COVID19_Dataset(imgpath = "data/images/", csvpath = "data/csv/metadata.csv")
     img_numpy = d[0]['img'][0]
+    sample_label = d[0]['lab'][3]
 
     gen = iter(vanilla_loader)
     sample_img, sample_labels = next(gen)
@@ -50,9 +51,11 @@ def main():
     writer1.add_image('xray_images', img_grid)
 
     # Model 
+    print("")
     time_build = time.time()
     print("Building resnet18 model (modified)")
     resnet_v = MyResNet18()
+    print("Building densenet model (modified)")
     densenet_v = MyDenseNet()
     run_time = time.time() - time_build
     print(f"Time taken: {run_time:.2f}s")
@@ -65,11 +68,15 @@ def main():
     resnet = train_model(resnet_v, train_loader, validation_loader, writer1, writer2)
     densenet = train_model(densenet_v, train_loader, validation_loader, writer1, writer2)
 
+    print("")
     # TENSORBOARD: Model evaluation, AUC curve
-    recall, prec, t, f, n = get_metrics(resnet, test_loader, writer1)
-    print(f"Total Entries: {n} | Positive Preds: {t} | Negative Preds: {f}")
-    print(f"Fine-tuned: Precision = {prec:.0f}% | Recall = {recall:.0f}%")
+    print("ResNet Model metrics:")
+    recall_rn, prec_rn, t_rn, f_rn, n_rn = get_metrics(resnet, test_loader, writer1)
+    
+    print("DenseNet Model metrics:")
+    recall_dn, prec_dn, t_dn, f_dn, n_dn = get_metrics(resnet, test_loader, writer1)
 
+    print("")
     # Enable gradients for gradcam and gradcam++
     for param in resnet.parameters():
         param.requires_grad = True
@@ -77,26 +84,32 @@ def main():
         param.requires_grad = True
 
     # Model visualisation with GradCam
+    # print(f'Patient is COVID {'Positive' if sample_label == 1 else 'Negative'}')
+
+    print("Generating GradCam")
     output_rn = infer(resnet, sample_img)
-    prob_rn = torch.sigmoid(output_rn)
+    prob_rn_tensor = torch.sigmoid(output_rn)
+    prob_rn = prob_rn_tensor.item()
     label_rn = 'Positive' if prob_rn >= 0.5 else 'Negative'
 
     # Generate heatmaps using Grad-CAM and Grad-CAM++
     heatmap_gc_rn = get_gradcam(resnet, output_rn, sample_img)
     heatmap_gcpp_rn = get_gradcam_pp(resnet, output_rn, sample_img)
 
-    vis_comparison(img_numpy, heatmap_gc_rn, heatmap_gcpp_rn, f'ResNet: {label_rn}, {prob_rn*100:.0f}%')
+    vis_comparison(img_numpy, heatmap_gc_rn, heatmap_gcpp_rn, f'Actual: {'Positive' if sample_label == 1 else 'Negative'}| ResNet Predicted: {label_rn}, {(prob_rn*100):.0f}%')
 
+    print("Generating GradCam++")
     # Model visualisation with GradCam
     output_dn = infer(densenet, sample_img)
-    prob_dn = torch.sigmoid(output_dn)
+    prob_dn_tensor = torch.sigmoid(output_dn)
+    prob_dn = prob_dn_tensor.item()
     label_dn = 'Positive' if prob_dn >= 0.5 else 'Negative'
 
     # Generate heatmaps using Grad-CAM and Grad-CAM++
     heatmap_gc_dn = get_gradcam(densenet, output_dn, sample_img)
     heatmap_gcpp_dn = get_gradcam_pp(densenet, output_dn, sample_img)
 
-    vis_comparison(img_numpy, heatmap_gc_dn, heatmap_gcpp_dn, f'DenseNet: {label_dn}, {prob_dn*100:.0f}%')
+    vis_comparison(img_numpy, heatmap_gc_dn, heatmap_gcpp_dn, f'Actual: {'Positive' if sample_label == 1 else 'Negative'} | DenseNet Predicted: {label_dn} with {(prob_dn*100):.0f}%')
 
 
 if __name__ == "__main__":

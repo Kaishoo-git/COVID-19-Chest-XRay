@@ -83,7 +83,6 @@ class MyResNet18(nn.Module):
         x = self.features(x)
         if x.requires_grad:
             h = x.register_hook(self.activations_hook)
-            print("Hook registered")
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
@@ -121,7 +120,6 @@ class MyDenseNet(nn.Module):
         x = self.features(x)
         if x.requires_grad:
             h = x.register_hook(self.activations_hook)
-            # print("Hook registered")
         x = self.adpool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)

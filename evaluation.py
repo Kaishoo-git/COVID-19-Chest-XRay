@@ -56,8 +56,8 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
                 avg_loss, avg_correct = epoch_loss / n_total, running_correct / n_total
                 v_loss.append(avg_loss)
                 v_acc.append(avg_correct)
-                if avg_loss < best_loss:
-                    best_loss, best_acc = avg_loss, avg_correct
+                if v_loss[-1] < best_loss:
+                    best_loss, best_acc = v_loss[-1], v_acc[-1] 
                     best_model = copy.deepcopy(model.state_dict())
             
         print(f"Epoch [{epoch + 1}/{epochs}] |Training Loss: {t_loss[-1]:.4f} | Validation Loss: {v_loss[-1]:.4f} | Training Acc: {t_acc[-1]*100:.2f}%")
@@ -74,7 +74,7 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
     mins, sec = elapsedtime//60, elapsedtime%60
 
     print(f"Training completed in {mins:.0f}mins {sec:.2f}s")
-    print(f"Best Loss: {best_loss:.4f} | Best Accuracy: {(best_acc * 100):.0f}%")
+    print(f"Best Loss: {best_loss:.4f} | Validation Accuracy: {(best_acc * 100):.0f}%")
 
     model.load_state_dict(best_model)
     return model
@@ -119,6 +119,6 @@ def get_metrics(model, test_loader, writer):
     prec = tp / (tp + fp) if (tp + fp) > 0 else 0
     run_time = time.time() - time_s
     print(f"Precision: {prec:.4f} | Recall: {recall:.4f} | Positives: {t} | Negatives: {f} | Total: {n}")
-    print(f"Time taken: {run_time:.2f}s")
+    # print(f"Time taken: {run_time:.2f}s")
 
     return recall, prec, t, f, n
