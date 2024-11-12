@@ -1,4 +1,5 @@
 *.ipynb_checkpoints
+*.docx
 xrayenv
 __pycache__/
 logs/

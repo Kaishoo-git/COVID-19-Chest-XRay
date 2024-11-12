@@ -40,9 +40,13 @@ class ConvNetGlobPooling(nn.Module):
         self.fc2 = nn.Linear(128, 64)
         self.fc3 = nn.Linear(64, 1)
 
+        self.gradients = None
+
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
+        
+        h = x.register_hook(self.activations_hook)
         
         # Apply global average pooling (or change to max pooling if needed)
         x = self.global_avg_pool(x)
@@ -52,6 +56,18 @@ class ConvNetGlobPooling(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+
+    def activations_hook(self, grad):
+        self.gradients = grad
+
+    def get_activation_gradients(self):
+        if self.gradients is None:
+            raise ValueError("Gradients were not captured by the hook. Check hook setup.")
+        else:
+            return self.gradients
+    
+    def get_activations(self, x):
+        return self.features(x)
 
 class MyResNet18(nn.Module):
     def __init__(self):
