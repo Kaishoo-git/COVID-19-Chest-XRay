@@ -128,6 +128,7 @@ class MyDenseNet(nn.Module):
         n_features = self.densenet.classifier.in_features
         
         self.features = self.densenet.features
+        
         self.adpool = nn.AdaptiveAvgPool2d((1,1))
         self.classifier = nn.Linear(n_features, 1, bias = True)
         self.gradients = None

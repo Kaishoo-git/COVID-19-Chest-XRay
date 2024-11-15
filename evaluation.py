@@ -1,14 +1,12 @@
 import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
-from torch.utils.tensorboard import SummaryWriter
 import numpy as np
 import matplotlib.pyplot as plt
 import time
 import copy
 
-# Creates a tensorboard scalar at the same time
-def train_model(model, train_loader, validation_loader, writer1, writer2, epochs = 5, learning_rate = 0.1, grad_criterion = nn.BCEWithLogitsLoss()):
+def train_model(model, train_loader, validation_loader, epochs = 5, learning_rate = 0.1, grad_criterion = nn.BCEWithLogitsLoss()):
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.8, patience = 1)
     best_model, best_loss, best_acc = copy.deepcopy(model.state_dict()), 9999.9, 0.0
@@ -61,14 +59,6 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
                     best_model = copy.deepcopy(model.state_dict())
             
         print(f"Epoch [{epoch + 1}/{epochs}] |Training Loss: {t_loss[-1]:.4f} | Validation Loss: {v_loss[-1]:.4f} | Training Acc: {t_acc[-1]*100:.2f}%")
-        
-        writer1.add_scalar('loss', t_loss[-1], epoch+1)
-        writer1.add_scalar('acc', t_acc[-1], epoch+1)
-        writer2.add_scalar('loss', v_loss[-1], epoch+1)
-        writer2.add_scalar('acc', v_acc[-1], epoch+1)
-
-    writer1.close()
-    writer2.close()
     
     elapsedtime = time.time() - starttime
     mins, sec = elapsedtime//60, elapsedtime%60
@@ -77,10 +67,10 @@ def train_model(model, train_loader, validation_loader, writer1, writer2, epochs
     print(f"Best Loss: {best_loss:.4f} | Validation Accuracy: {(best_acc * 100):.0f}%")
 
     model.load_state_dict(best_model)
-    return model
+    stats = [t_loss, t_acc, v_loss, v_acc]
+    return model, stats
     
-# Creates a tensorboard AUC curve at the same time
-def get_metrics(model, test_loader, writer):
+def get_metrics(model, test_loader):
 
     model.eval()
     time_s = time.time()
@@ -111,9 +101,6 @@ def get_metrics(model, test_loader, writer):
 
         preds = torch.cat(preds, dim = 0) if len(preds) > 1 else torch.tensor(preds[0]) # These are probabilities in order to match the pr curve
         g_lab = torch.cat(g_lab, dim = 0) if len(g_lab) > 1 else torch.tensor(labels[0])
-
-        writer.add_pr_curve('covid19', g_lab, preds, 0)
-        writer.close()
 
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0
     prec = tp / (tp + fp) if (tp + fp) > 0 else 0

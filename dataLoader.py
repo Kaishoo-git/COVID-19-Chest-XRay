@@ -2,9 +2,9 @@ import torchxrayvision as xrv
 import torch
 import torchvision.transforms as transforms
 import numpy as np
+import cv2
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
-import cv2
 from PIL import Image
 
 def get_images_max_min(indices, data):
