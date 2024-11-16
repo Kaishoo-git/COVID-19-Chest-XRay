@@ -4,57 +4,48 @@ import torch.nn.functional as F
 from torch.optim import lr_scheduler
 from torchvision import models
 
-class ConvNet(nn.Module):
+class LinearNet(nn.Module):
 
     def __init__(self):
-        super(ConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 4, 5)
-        self.pool = nn.MaxPool2d(4, 4)
-        self.conv2 = nn.Conv2d(4, 16, 5)
-
+        super(LinearNet, self).__init__()
         self.fc1 = nn.Linear(16 * 12 * 12, 576)
         self.fc2 = nn.Linear(576, 128)
         self.fc3 = nn.Linear(128, 1)
     
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 16 * 12 * 12)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
 
-class ConvNetGlobPooling(nn.Module):
+class ConvNet(nn.Module):
 
     def __init__(self):
-        super(ConvNetGlobPooling, self).__init__()
-        self.conv1 = nn.Conv2d(1, 4, 5)
-        self.pool = nn.MaxPool2d(4, 4)
-        self.conv2 = nn.Conv2d(4, 16, 5)
+        super(ConvNet, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 4, 5),
+            nn.MaxPool2d(4, 4),
+            nn.Conv2d(4, 16, 5)
+        )
         
-        # Global Average Pooling (replaces flattening)
         self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
         
-        self.fc1 = nn.Linear(16, 128)  # Adjusted to match the output from global pooling
-        self.fc2 = nn.Linear(128, 64)
-        self.fc3 = nn.Linear(64, 1)
+        self.fc1 = nn.Linear(16, 128) 
+        self.fc2 = nn.Linear(128, 1)
 
         self.gradients = None
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
+        x = self.features(x)
+        if x.requires_grad == True:
+            h = x.register_hook(self.activations_hook)
         
-        h = x.register_hook(self.activations_hook)
-        
-        # Apply global average pooling (or change to max pooling if needed)
         x = self.global_avg_pool(x)
-        x = x.view(x.size(0), -1)  # Flatten for fully connected layer
+        x = x.view(x.size(0), -1)  
         
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = self.fc2(x)
         return x
 
     def activations_hook(self, grad):
