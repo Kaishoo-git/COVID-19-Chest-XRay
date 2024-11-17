@@ -8,12 +8,12 @@ class LinearNet(nn.Module):
 
     def __init__(self):
         super(LinearNet, self).__init__()
-        self.fc1 = nn.Linear(16 * 12 * 12, 576)
-        self.fc2 = nn.Linear(576, 128)
-        self.fc3 = nn.Linear(128, 1)
+        self.fc1 = nn.Linear(224 * 224, 4096)
+        self.fc2 = nn.Linear(4096, 1024)
+        self.fc3 = nn.Linear(1024, 1)
     
     def forward(self, x):
-        x = x.view(-1, 16 * 12 * 12)
+        x = x.view(-1, 224 * 224)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)

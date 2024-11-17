@@ -3,11 +3,11 @@ import random
 import matplotlib.pyplot as plt
 from scipy.ndimage import rotate, shift
 
-def explore_data(data, resampled):
+def explore_data(data, processed):
     n = len(data)
     p, f = 0, 0
     for i in range(n):
-        if resampled:
+        if processed:
             lab = data[i]['lab']
         else:
             lab = data[i]['lab'][3]
