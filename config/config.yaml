@@ -1,0 +1,12 @@
+paths:
+  dataset:
+    images: 'data/images/'
+    csv: 'data/csv/metadata.csv'
+  model_save_dir: 'models/'
+training:
+  batch_size: 16
+  learning_rate: 0.001
+  num_epochs: 10
+  num_workers: 0
+misc:
+  random_seed: 44

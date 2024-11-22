@@ -1,12 +1,10 @@
 import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
-import numpy as np
-import matplotlib.pyplot as plt
 import time
 import copy
 
-def train_model(model, train_loader, validation_loader, epochs = 10, learning_rate = 1e-2, grad_criterion = nn.BCEWithLogitsLoss()):
+def train_model(model, train_loader, validation_loader, epochs, learning_rate, grad_criterion = nn.BCEWithLogitsLoss()):
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.5, patience = 2, threshold = 1e-4, min_lr = 1e-6)
     best_model = copy.deepcopy(model.state_dict())
@@ -81,7 +79,9 @@ def train_model(model, train_loader, validation_loader, epochs = 10, learning_ra
     print(f"Best Loss: {best_loss:.4f} | Training F1: {best_f1:.4f}")
 
     model.load_state_dict(best_model)
-    stats = [t_loss, t_prec, t_rec, t_f1, v_loss, v_prec, v_rec, v_f1, elapsedtime]
+    stats = {'train': {'loss': t_loss, 'prec': t_prec, 'rec': t_rec, 'f1': t_f1},
+             'val': {'loss': v_loss, 'prec': v_prec, 'rec': v_rec, 'f1': v_f1},
+             'time': elapsedtime}
     return model, stats
     
 def get_metrics(model, test_loader):
@@ -93,7 +93,6 @@ def get_metrics(model, test_loader):
         for j, (images, labels) in enumerate(test_loader):
 
             outputs = model(images)
-            probs = torch.sigmoid(outputs)
             y_preds = (torch.sigmoid(outputs) >= 0.5).float()
             
             k = y_preds.size(dim = 0)
@@ -112,5 +111,5 @@ def get_metrics(model, test_loader):
     prec = tp / (tp + fp) if (tp + fp) > 0 else 0
     f1 = (2*tp) / (2*tp + fp + fn) if (2*tp + fp + fn) > 0 else 0
     print(f"Precision: {prec:.4f} | Recall: {recall:.4f} | F1: {f1:.4f} | Predicted positives: {t} | Predicted negatives: {f} | Total: {n}")
-
-    return recall, prec, f1, t, f, n
+    metrics = {'rec': recall, 'prec': prec, 'f1': f1}
+    return metrics
