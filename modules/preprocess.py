@@ -38,7 +38,6 @@ def get_data(neg_idx, pos_idx, data, random_state, resample = False):
     return res
 
 def stratified_split(dataset, resample = False, random_state = 44):
-    n = len(dataset)
     neg = [i for i, x in enumerate(dataset) if x['lab'][3] == 0]
     pos = [i for i, x in enumerate(dataset) if x['lab'][3] == 1]
 

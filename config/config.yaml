@@ -2,11 +2,16 @@ paths:
   dataset:
     images: 'data/images/'
     csv: 'data/csv/metadata.csv'
+    preprocessed: 'data/preprocessed/'
   model_save_dir: 'models/'
+  visualisations: 'visualisations/'
+
 training:
   batch_size: 16
   learning_rate: 0.001
   num_epochs: 10
   num_workers: 0
+
 misc:
+  headers: ['Model', 'Precision', 'Recall', 'F1 Score']
   random_seed: 44

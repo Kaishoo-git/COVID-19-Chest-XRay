@@ -3,11 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import torchvision.transforms as transforms
+import pandas as pd
 from sklearn.decomposition import PCA
 from matplotlib.colors import LinearSegmentedColormap
 from PIL import Image
 
-def plot_loss_and_metric(epochs, train_loss, val_loss, train_metric, test_metric, loss_title, metric_title):
+def plot_loss_and_metric(epochs, train_loss, val_loss, train_metric, test_metric, model_name, save_path = None):
     fig, axes = plt.subplots(1, 2, figsize=(16, 6)) 
     
     axes[0].plot([i+1 for i in range(epochs)], train_loss, label='training', linestyle='-', color='blue', marker='o')
@@ -19,7 +20,7 @@ def plot_loss_and_metric(epochs, train_loss, val_loss, train_metric, test_metric
     axes[0].set_yticks(np.arange(0, upper + spacing, spacing))
     axes[0].set_xlabel('Epochs')
     axes[0].set_ylabel('BCE Loss')
-    axes[0].set_title(loss_title)
+    axes[0].set_title(f'{model_name} loss')
     axes[0].legend()
 
     axes[1].plot([i+1 for i in range(epochs)], train_metric, label='training', linestyle='-', color='blue', marker='o')
@@ -29,10 +30,15 @@ def plot_loss_and_metric(epochs, train_loss, val_loss, train_metric, test_metric
     axes[1].set_ylim(0, 1.1)
     axes[1].set_xlabel('Epochs')
     axes[1].set_ylabel('Metric Value')
-    axes[1].set_title(metric_title)
+    axes[1].set_title(f'{model_name} metric')
     axes[1].legend()
 
     plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)  
+        print(f"Plot saved to {save_path}")
+
     plt.show()
 
 def vis_comparison(model, pos_img, neg_img):
@@ -54,14 +60,9 @@ def vis_comparison(model, pos_img, neg_img):
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.show()
 
-def create_table(headers, models):
-    markdown_table = "| " + " | ".join(headers) + " |\n"
-    markdown_table += "| " + " | ".join([":-" for _ in headers]) + " |\n"
-
-    for model_metrics in models:
-        markdown_table += "| " + " | ".join(map(lambda x: str(round(x, 4)) if isinstance(x, (int, float)) else str(x), model_metrics)) + " |\n"
-
-    print(markdown_table)
+def create_table(headers, data):
+    df = pd.DataFrame(data, columns=headers)
+    print(df)
 
 def eigen_smooth(heatmap, n_components=1):
     flat_heatmap = heatmap.reshape(-1, 1)
@@ -153,21 +154,3 @@ def visualize_heatmaps(model, sample_img, sample_input):
     show_heatmap_overlay(sample_img, heatmap_gc)
     show_heatmap_overlay(sample_img, heatmap_gcpp)
 
-def save_table_as_image(headers, data, filename="table.png"):
-    fig, ax = plt.subplots(figsize=(6, len(data) * 0.5))
-    ax.axis('tight') 
-    ax.axis('off')   
-    
-    table = plt.table(
-        cellText=data,
-        colLabels=headers,
-        cellLoc='center',
-        loc='center'
-    )
-    
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.auto_set_column_width(col=list(range(len(headers))))
-    
-    plt.savefig(filename, bbox_inches='tight')
-    plt.close(fig)
