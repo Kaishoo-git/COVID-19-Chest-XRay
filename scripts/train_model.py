@@ -24,6 +24,7 @@ def train_model_workflow(resample):
         config = yaml.safe_load(f)
     
     EPOCHS, LEARNING_RATE = config['training']['num_epochs'], config['training']['learning_rate']
+    
     train, val, _ = preprocess_data_workflow(resample=resample)
 
     models = {
