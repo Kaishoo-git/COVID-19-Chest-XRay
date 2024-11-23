@@ -8,12 +8,10 @@ class Covid19DataSet(torch.utils.data.Dataset):
     def __init__(self, d, transform = 'vanilla'):
         data_transforms = {
             'augment': transforms.Compose([
-            transforms.Resize((224,224)),
             transforms.RandomHorizontalFlip(p=0.3),
             transforms.ToTensor(),
             ]),
             'vanilla': transforms.Compose([
-            transforms.Resize((224,224)),
             transforms.ToTensor(),
             ]),
         }

@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import cv2
 from scipy.ndimage import rotate, shift
 from sklearn.model_selection import train_test_split
 
@@ -23,16 +24,19 @@ def get_data(neg_idx, pos_idx, data, random_state, resample = False):
     random.seed(random_state)
     for i in neg_idx:
         img, lab = data[i]['img'][0], data[i]['lab'][3]
+        img = cv2.resize(img, (224, 224))
         res.append({'img': img, 'lab': lab})
         n_neg += 1
     for i in pos_idx:
         img, lab = data[i]['img'][0], data[i]['lab'][3]
+        img = cv2.resize(img, (224, 224))
         res.append({'img': img, 'lab': lab})
         n_pos += 1
     if resample:
         while n_neg < n_pos:
             i = random.choice(neg_idx)
             img, lab = data[i]['img'][0], data[i]['lab'][3]
+            img = cv2.resize(img, (224, 224))
             res.append({'img': generate_new_image(img), 'lab': lab})
             n_neg += 1
     return res
