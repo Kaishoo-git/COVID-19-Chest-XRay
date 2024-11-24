@@ -1,78 +1,102 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.optim import lr_scheduler
-from torchvision import models
+import torchvision
+import torchxrayvision
 
-class LinearNet(nn.Module):
+class LinearNet(torch.nn.Module):
 
     def __init__(self):
         super(LinearNet, self).__init__()
-        self.fc1 = nn.Linear(224 * 224, 4096)
-        self.fc2 = nn.Linear(4096, 1024)
-        self.fc3 = nn.Linear(1024, 1)
+        self.classifier = torch.nn.Sequential(
+            torch.nn.Linear(224 * 224, 4096),
+            torch.nn.ReLU(),
+            torch.nn.Linear(4096, 1024),
+            torch.nn.ReLU(),
+            torch.nn.Linear(1024, 1),
+        )
     
     def forward(self, x):
         x = x.view(-1, 224 * 224)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = self.classifier(x)
         return x
 
-class ConvNet(nn.Module):
+class BaseModel(torch.nn.Module):
+    def __init__(self):
+        super(BaseModel, self).__init__()
+        self.features = None
+        self.avgpool = None
+        self.classifier = None
+        self.gradients = None
+
+    def activations_hook(self, grad):
+        """Save gradients for Grad-CAM."""
+        self.gradients = grad
+
+    def forward(self, x):
+        """Forward pass."""
+        x = self.features(x)
+        if x.requires_grad:
+            x.register_hook(self.activations_hook)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+    def get_activation_gradients(self):
+        """Access captured gradients."""
+        if self.gradients is None:
+            raise ValueError("Gradients not captured. Perform backward pass first.")
+        return self.gradients
+
+    def get_activations(self, x):
+        """Get activations for feature maps."""
+        return self.features(x)
+
+class ConvNet(BaseModel):
 
     def __init__(self):
         super(ConvNet, self).__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(1, 4, 5),
-            nn.MaxPool2d(4, 4),
-            nn.Conv2d(4, 16, 5)
+        self.features = torch.nn.Sequential(
+            torch.nn.Conv2d(1, 4, 3, stride=1, padding=1), 
+            torch.nn.BatchNorm2d(4),  
+            torch.nn.ReLU(),  
+            torch.nn.MaxPool2d(2, 2),  
+            
+            torch.nn.Conv2d(4, 16, 3, stride=1, padding=1),
+            torch.nn.BatchNorm2d(16), 
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2, 2),
+
+            torch.nn.Conv2d(16, 64, 3, stride=1, padding=1),
+            torch.nn.BatchNorm2d(64),  
+            torch.nn.ReLU(),
+
+            torch.nn.Conv2d(64, 256, 3, stride=1, padding=1),
+            torch.nn.BatchNorm2d(256), 
+            torch.nn.ReLU(),
         )
-        
-        self.global_avg_pool = nn.AdaptiveAvgPool2d(1)
-        
-        self.fc1 = nn.Linear(16, 128) 
-        self.fc2 = nn.Linear(128, 1)
 
-        self.gradients = None
+        self.avgpool = torch.nn.AdaptiveAvgPool2d(1)
+        self.classifier = torch.nn.Linear(256, 1, bias=True)
 
-    def forward(self, x):
-        x = self.features(x)
-        if x.requires_grad == True:
-            h = x.register_hook(self.activations_hook)
-        
-        x = self.global_avg_pool(x)
-        x = x.view(x.size(0), -1)  
-        
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
+class GenResNet18(BaseModel):
+    def __init__(self, weights='default'):
+        super(GenResNet18, self).__init__()
+        valid_weights = {'default', 'xray'}
+        if weights not in valid_weights:
+            raise ValueError(f"Invalid weights: {weights}. Choose from {valid_weights}.")
 
-    def activations_hook(self, grad):
-        self.gradients = grad
+        match weights:
+            case 'default':
+                self.resnet = torchvision.models.resnet18(weights='DEFAULT')
+                with torch.no_grad():
+                    self.resnet.conv1.weight = torch.nn.Parameter(self.resnet.conv1.weight.mean(dim=1, keepdim=True))
+            case 'xray':
+                self.resnet = torchxrayvision.models.ResNet(weights="resnet50-res512-all")
 
-    def get_activation_gradients(self):
-        if self.gradients is None:
-            raise ValueError("Gradients were not captured by the hook. Check hook setup.")
-        else:
-            return self.gradients
-    
-    def get_activations(self, x):
-        return self.features(x)
-
-class MyResNet18(nn.Module):
-    def __init__(self):
-        super(MyResNet18, self).__init__()
-        self.resnet = models.resnet18(weights = 'DEFAULT')
-        
-        with torch.no_grad():
-            self.resnet.conv1.weight = nn.Parameter(self.resnet.conv1.weight.mean(dim = 1, keepdim = True))
         for params in self.resnet.parameters():
             params.requires_grad = False
-            
-        num_features = self.resnet.fc.in_features
 
-        self.features = nn.Sequential(
+        self.features = torch.nn.Sequential(
             self.resnet.conv1,
             self.resnet.bn1,
             self.resnet.relu,
@@ -83,64 +107,34 @@ class MyResNet18(nn.Module):
             self.resnet.layer4
         )
         self.avgpool = self.resnet.avgpool
-        self.classifier = nn.Linear(num_features, 1, bias = True)
-        self.gradients = None
+        self.classifier = torch.nn.Linear(self.resnet.fc.in_features, 1)
 
-    def forward(self, x):
-        x = self.features(x)
-        if x.requires_grad:
-            h = x.register_hook(self.activations_hook)
-        x = self.avgpool(x)
-        x = torch.flatten(x, 1)
-        x = self.classifier(x)
-        return x
-    
-    def activations_hook(self, grad):
-        self.gradients = grad
 
-    def get_activation_gradients(self):
-        if self.gradients is None:
-            raise ValueError("Gradients were not captured by the hook. Check hook setup.")
-        else:
-            return self.gradients
-    
-    def get_activations(self, x):
-        return self.features(x)
-    
-class MyDenseNet(nn.Module):
-    def __init__(self):
-        super(MyDenseNet, self).__init__()
-        self.densenet = models.densenet121(weights = 'DEFAULT')
+class GenDenseNet(BaseModel):
+    def __init__(self, weights='default'):
+        super(GenDenseNet, self).__init__()
+        valid_weights = {'default', 'nih', 'chexpert', 'pc'}
+        if weights not in valid_weights:
+            raise ValueError(f"Invalid weights: {weights}. Choose from {valid_weights}.")
 
-        with torch.no_grad():
-            self.densenet.features.conv0.weight = nn.Parameter(self.densenet.features.conv0.weight.mean(dim=1, keepdim = True))
+        match weights:
+            case 'default':
+                self.densenet = torchvision.models.densenet121(weights='DEFAULT')
+                with torch.no_grad():
+                    self.densenet.features.conv0.weight = torch.nn.Parameter(
+                        self.densenet.features.conv0.weight.mean(dim=1, keepdim=True)
+                    )
+            case 'nih':
+                self.densenet = torchxrayvision.models.densenet121(weights='densenet121-res224-nih')
+            case 'chexpert':
+                self.densenet = torchxrayvision.models.densenet121(weights='densenet121-res224-chex')
+            case 'pc':
+                self.densenet = torchxrayvision.models.densenet121(weights='densenet121-res224-rsna')
+
         for params in self.densenet.parameters():
             params.requires_grad = False
-        n_features = self.densenet.classifier.in_features
-        
+
         self.features = self.densenet.features
-        
-        self.adpool = nn.AdaptiveAvgPool2d((1,1))
-        self.classifier = nn.Linear(n_features, 1, bias = True)
-        self.gradients = None
+        self.avgpool = torch.nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = torch.nn.Linear(self.densenet.classifier.in_features, 1)
 
-    def forward(self, x):
-        x = self.features(x)
-        if x.requires_grad:
-            h = x.register_hook(self.activations_hook)
-        x = self.adpool(x)
-        x = torch.flatten(x, 1)
-        x = self.classifier(x)
-        return x
-    
-    def activations_hook(self, grad):
-        self.gradients = grad
-
-    def get_activation_gradients(self):
-        if self.gradients is None:
-            raise ValueError("Gradients were not captured by the hook. Check hook setup.")
-        else:
-            return self.gradients
-    
-    def get_activations(self, x):
-        return self.features(x)
