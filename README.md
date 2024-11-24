@@ -17,7 +17,8 @@ covid19_chest_xray/
 │   ├── csv/
 │   │   └── metadata.csv
 │   └── preprocessed/
-│       ├── train.pkl
+│       ├── train_unsampled.pkl
+│       ├── train_resampled.pkl
 │       ├── val.pkl
 │       └── test.pkl
 ├── scripts/               
