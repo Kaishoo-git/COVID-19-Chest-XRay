@@ -90,24 +90,42 @@ class GenResNet18(BaseModel):
                 self.resnet = torchvision.models.resnet18(weights='DEFAULT')
                 with torch.no_grad():
                     self.resnet.conv1.weight = torch.nn.Parameter(self.resnet.conv1.weight.mean(dim=1, keepdim=True))
+
+                for params in self.resnet.parameters():
+                    params.requires_grad = False
+
+                self.features = torch.nn.Sequential(
+                    self.resnet.conv1,
+                    self.resnet.bn1,
+                    self.resnet.relu,
+                    self.resnet.maxpool,
+                    self.resnet.layer1,
+                    self.resnet.layer2,
+                    self.resnet.layer3,
+                    self.resnet.layer4
+                )
+                self.avgpool = self.resnet.avgpool
+                self.classifier = torch.nn.Linear(self.resnet.fc.in_features, 1)
+
             case 'xray':
-                self.resnet = torchxrayvision.models.ResNet(weights="resnet50-res512-all")
+                self.resnet = torchxrayvision.models.ResNet(weights="resnet50-res512-all").model
 
-        for params in self.resnet.parameters():
-            params.requires_grad = False
+                for params in self.resnet.parameters():
+                    params.requires_grad = False
 
-        self.features = torch.nn.Sequential(
-            self.resnet.conv1,
-            self.resnet.bn1,
-            self.resnet.relu,
-            self.resnet.maxpool,
-            self.resnet.layer1,
-            self.resnet.layer2,
-            self.resnet.layer3,
-            self.resnet.layer4
-        )
-        self.avgpool = self.resnet.avgpool
-        self.classifier = torch.nn.Linear(self.resnet.fc.in_features, 1)
+                self.features = torch.nn.Sequential(
+                    self.resnet.conv1,
+                    self.resnet.bn1,
+                    self.resnet.relu,
+                    self.resnet.maxpool,
+                    self.resnet.layer1,
+                    self.resnet.layer2,
+                    self.resnet.layer3,
+                    self.resnet.layer4
+                )
+                self.avgpool = self.resnet.avgpool
+                self.classifier = torch.nn.Linear(self.resnet.fc.in_features, 1)
+
 
 
 class GenDenseNet(BaseModel):
@@ -125,11 +143,11 @@ class GenDenseNet(BaseModel):
                         self.densenet.features.conv0.weight.mean(dim=1, keepdim=True)
                     )
             case 'nih':
-                self.densenet = torchxrayvision.models.densenet121(weights='densenet121-res224-nih')
+                self.densenet = torchxrayvision.models.DenseNet(weights='densenet121-res224-nih')
             case 'chexpert':
-                self.densenet = torchxrayvision.models.densenet121(weights='densenet121-res224-chex')
+                self.densenet = torchxrayvision.models.DenseNet(weights='densenet121-res224-chex')
             case 'pc':
-                self.densenet = torchxrayvision.models.densenet121(weights='densenet121-res224-rsna')
+                self.densenet = torchxrayvision.models.DenseNet(weights='densenet121-res224-rsna')
 
         for params in self.densenet.parameters():
             params.requires_grad = False

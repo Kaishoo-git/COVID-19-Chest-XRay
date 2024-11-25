@@ -47,13 +47,12 @@ def train_model(model, train_loader, validation_loader, epochs, learning_rate, g
                         loss.backward()
                         optimizer.step()
 
-            avg_loss = epoch_loss / n_total
             avg_prec = r_tp / (r_tp + r_fp) if (r_tp + r_fp) > 0 else 0
             avg_rec = r_tp / (r_tp + r_fn) if (r_tp + r_fn) > 0 else 0
             avg_f1 = (2*r_tp) / (2*r_tp + r_fp + r_fn) if (2*r_tp + r_fp + r_fn) > 0 else 0
 
             if phase == 'train':
-                t_loss.append(avg_loss)
+                t_loss.append(epoch_loss)
                 t_prec.append(avg_prec)
                 t_rec.append(avg_rec)
                 t_f1.append(avg_f1)
@@ -61,7 +60,7 @@ def train_model(model, train_loader, validation_loader, epochs, learning_rate, g
                 scheduler.step(epoch_loss)    
 
             if phase == 'val':
-                v_loss.append(avg_loss)
+                v_loss.append(epoch_loss)
                 v_prec.append(avg_prec)
                 v_rec.append(avg_rec)
                 v_f1.append(avg_f1)
@@ -70,7 +69,7 @@ def train_model(model, train_loader, validation_loader, epochs, learning_rate, g
                     best_loss, best_f1 = (t_loss[-1] + v_loss[-1]), t_f1[-1] 
                     best_model = copy.deepcopy(model.state_dict())
             
-        # print(f"Epoch [{epoch + 1}/{epochs}] |Training Loss: {t_loss[-1]:.4f} | Validation Loss: {v_loss[-1]:.4f} | Training F1: {t_f1[-1]:.4f}")
+        print(f"Epoch [{epoch + 1}/{epochs}] |Training Loss: {t_loss[-1]:.4f} | Validation Loss: {v_loss[-1]:.4f} | Training F1: {t_f1[-1]:.4f}")
     
     elapsedtime = time.time() - starttime
     mins, sec = elapsedtime//60, elapsedtime%60

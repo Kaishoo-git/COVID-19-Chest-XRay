@@ -5,12 +5,12 @@ import pickle
 
 from torch.utils.data import DataLoader
 from modules.dataset import Covid19DataSet
-from modules.models import LinearNet, ConvNet, MyResNet18, MyDenseNet
+from modules.models import LinearNet, ConvNet, GenResNet18, GenDenseNet
 from modules.training import train_model
 
 
 def save_model_stats_and_weights(resample, models_stats, trained_models, config):
-    model_save_dir = config['paths']['model_save_dir']
+    model_save_dir = config['path']['model_save_dir']
     stats_path = f"{model_save_dir}models_{'resampled' if resample else 'unsampled'}_stats.json"
     with open(stats_path, "w") as f:
         json.dump(models_stats, f, indent = 4)
@@ -41,6 +41,7 @@ def get_loaders(resample, batch_size, num_workers, config):
     return train_loader, val_loader, test_loader
 
 def training_workflow(resample):
+    print(f'Training on {'resampled' if resample else 'unsampled'} dataset')
     with open("config/config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
@@ -52,10 +53,14 @@ def training_workflow(resample):
     train_loader, val_loader, _ = get_loaders(resample, BATCH_SIZE, NUM_WORKERS, config)
 
     models = {
-        "linearnet": LinearNet(),
-        "convnet": ConvNet(),
-        "resnet": MyResNet18(),
-        "densenet": MyDenseNet()
+        # "linearnet": LinearNet(),
+        # "convnet": ConvNet(),
+        "gen_resnet": GenResNet18(weights = 'default')
+        # "xray_resnet": GenResNet18(weights = 'xray'),
+        # "gen_densenet": GenDenseNet(weights = 'default'),
+        # "nih_densenet": GenDenseNet(weights = 'nih')
+        # "chexpert_densenet": GenDenseNet(weights = 'chexpert'),
+        # "pc_densenet": GenDenseNet(weights = 'pc'),
     }
 
     models_stats = {}
@@ -67,9 +72,9 @@ def training_workflow(resample):
         models_stats[model_name] = model_stats
         trained_models[model_name] = trained_model
 
-    save_model_stats_and_weights(models_stats, trained_models, config)
+    save_model_stats_and_weights(resample, models_stats, trained_models, config)
 
-    print(f'Models trained and saved in {config['paths']['model_save_dir']}')
+    print(f'Models trained and saved in {config['path']['model_save_dir']}')
 
 if __name__ == "__main__":
     resample_choice = input("Which dataset would you like to train on? (unsampled/resampled): ").strip().lower() == "resampled"
