@@ -4,22 +4,24 @@ import torch
 import pickle
 
 from torch.utils.data import DataLoader
-from modules.dataset import Covid19DataSet
+from modules.datasets import Covid19DataSet
 from modules.models import LinearNet, ConvNet, GenResNet18, GenDenseNet
 from modules.training import train_model
 
 
-def save_model_stats_and_weights(resample, models_stats, trained_models, config):
-    model_save_dir = config['path']['model_save_dir']
-    stats_path = f"{model_save_dir}models_{'resampled' if resample else 'unsampled'}_stats.json"
+def save_model_stats_and_weights(resample, model_name, trained_model, model_stats, config):
+
+    model_save_dir = config['path']['model_dir']['weights']
+    model_path = f"{model_save_dir}{model_name}_{'resampled' if resample else 'unsampled'}.pth"
+    torch.save(trained_model.state_dict(), model_path)
+    print(f"{model_name} weights saved to {model_path}")
+
+    stats_save_dir = config['path']['model_dir']['stats']
+    stats_path = f"{stats_save_dir}{model_name}_{'resampled' if resample else 'unsampled'}_stats.json"
     with open(stats_path, "w") as f:
-        json.dump(models_stats, f, indent = 4)
+        json.dump(model_stats, f, indent = 4)
     print(f"Model stats saved to {stats_path}")
 
-    for model_name, model in trained_models.items():
-        model_path = f"{model_save_dir}{model_name}_{'resampled' if resample else 'unsampled'}.pth"
-        torch.save(model.state_dict(), model_path)
-        print(f"{model_name} weights saved to {model_path}")
 
 def get_loaders(resample, batch_size, num_workers, config):
     DATALOADER_PATH = config['path']['dataset']['preprocessed']
@@ -53,28 +55,22 @@ def training_workflow(resample):
     train_loader, val_loader, _ = get_loaders(resample, BATCH_SIZE, NUM_WORKERS, config)
 
     models = {
-        # "linearnet": LinearNet(),
-        # "convnet": ConvNet(),
-        "gen_resnet": GenResNet18(weights = 'default')
-        # "xray_resnet": GenResNet18(weights = 'xray'),
-        # "gen_densenet": GenDenseNet(weights = 'default'),
-        # "nih_densenet": GenDenseNet(weights = 'nih')
-        # "chexpert_densenet": GenDenseNet(weights = 'chexpert'),
-        # "pc_densenet": GenDenseNet(weights = 'pc'),
+        "linearnet": LinearNet(),
+        "convnet": ConvNet(),
+        "resnet_gen": GenResNet18(weights = 'default'),
+        # "resnet_xray": GenResNet18(weights = 'xray')
+        "densenet_gen": GenDenseNet(weights = 'default'),
+        "densenet_nih": GenDenseNet(weights = 'nih'),
+        "densenet_chexpert": GenDenseNet(weights = 'chexpert'),
+        "densenet_pc": GenDenseNet(weights = 'pc')
     }
-
-    models_stats = {}
-    trained_models = {}
 
     for model_name, model in models.items():
         print(f"Training {model_name}...")
         trained_model, model_stats = train_model(model, train_loader, val_loader, EPOCHS, LEARNING_RATE)
-        models_stats[model_name] = model_stats
-        trained_models[model_name] = trained_model
+        save_model_stats_and_weights(resample, model_name, trained_model, model_stats, config)
 
-    save_model_stats_and_weights(resample, models_stats, trained_models, config)
-
-    print(f'Models trained and saved in {config['path']['model_save_dir']}')
+    print(f'Models trained and saved in {config['path']['model_dir']}')
 
 if __name__ == "__main__":
     resample_choice = input("Which dataset would you like to train on? (unsampled/resampled): ").strip().lower() == "resampled"

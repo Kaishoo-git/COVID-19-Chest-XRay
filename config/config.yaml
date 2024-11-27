@@ -3,8 +3,13 @@ path:
     images: 'data/images/'
     csv: 'data/csv/metadata.csv'
     preprocessed: 'data/preprocessed/'
-  model_save_dir: 'models/'
-  visualisations: 'visualisations/'
+  model_dir:
+    weights: 'models/weights/'
+    stats: 'models/stats/'
+  visualisations:
+    heatmaps: 'visualisations/heatmaps/'
+    plots: 'visualisations/plots/'
+    tables: 'visualisations/tables/'
 
 training:
   batch_size: 16

@@ -91,42 +91,31 @@ class GenResNet18(BaseModel):
                 with torch.no_grad():
                     self.resnet.conv1.weight = torch.nn.Parameter(self.resnet.conv1.weight.mean(dim=1, keepdim=True))
 
-                for params in self.resnet.parameters():
-                    params.requires_grad = False
-
-                self.features = torch.nn.Sequential(
-                    self.resnet.conv1,
-                    self.resnet.bn1,
-                    self.resnet.relu,
-                    self.resnet.maxpool,
-                    self.resnet.layer1,
-                    self.resnet.layer2,
-                    self.resnet.layer3,
-                    self.resnet.layer4
-                )
-                self.avgpool = self.resnet.avgpool
-                self.classifier = torch.nn.Linear(self.resnet.fc.in_features, 1)
-
             case 'xray':
                 self.resnet = torchxrayvision.models.ResNet(weights="resnet50-res512-all").model
+                old_weights = self.resnet.conv1.weight.data
+                new_weights = torch.nn.functional.interpolate(old_weights.permute(1, 0, 2, 3), size=(3, 3), mode='bilinear').permute(1, 0, 2, 3)
+                self.resnet.conv1 = torch.nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
+                self.resnet.conv1.weight = torch.nn.Parameter(new_weights)
 
-                for params in self.resnet.parameters():
-                    params.requires_grad = False
+        for name, params in self.resnet.named_parameters():
+            if 'layer4' in name:
+                params.requires_grad = True
+            else:
+                params.requires_grad = False
 
-                self.features = torch.nn.Sequential(
-                    self.resnet.conv1,
-                    self.resnet.bn1,
-                    self.resnet.relu,
-                    self.resnet.maxpool,
-                    self.resnet.layer1,
-                    self.resnet.layer2,
-                    self.resnet.layer3,
-                    self.resnet.layer4
-                )
-                self.avgpool = self.resnet.avgpool
-                self.classifier = torch.nn.Linear(self.resnet.fc.in_features, 1)
-
-
+        self.features = torch.nn.Sequential(
+            self.resnet.conv1,
+            self.resnet.bn1,
+            self.resnet.relu,
+            self.resnet.maxpool,
+            self.resnet.layer1,
+            self.resnet.layer2,
+            self.resnet.layer3,
+            self.resnet.layer4
+        )
+        self.avgpool = self.resnet.avgpool
+        self.classifier = torch.nn.Linear(self.resnet.fc.in_features, 1)
 
 class GenDenseNet(BaseModel):
     def __init__(self, weights='default'):

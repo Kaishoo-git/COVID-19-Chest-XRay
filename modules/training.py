@@ -11,8 +11,6 @@ def train_model(model, train_loader, validation_loader, epochs, learning_rate, g
     t_loss, t_prec, t_rec, t_f1, v_loss, v_prec, v_rec, v_f1 = [], [], [], [], [], [], [], []
     best_loss, best_f1 = 1e10, 0.0
     starttime = time.time()
-    
-    print("Training model")
 
     for epoch in range(epochs):
 
