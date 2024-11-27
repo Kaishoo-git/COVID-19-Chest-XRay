@@ -5,7 +5,7 @@ import pickle
 
 from torch.utils.data import DataLoader
 from modules.datasets import Covid19DataSet
-from modules.models import LinearNet, ConvNet, GenResNet18, GenDenseNet
+from modules.models import LinearNet, ConvNet, GenResNet, GenDenseNet
 from modules.training import train_model
 
 
@@ -55,14 +55,14 @@ def training_workflow(resample):
     train_loader, val_loader, _ = get_loaders(resample, BATCH_SIZE, NUM_WORKERS, config)
 
     models = {
-        "linearnet": LinearNet(),
-        "convnet": ConvNet(),
-        "resnet_gen": GenResNet18(weights = 'default'),
-        # "resnet_xray": GenResNet18(weights = 'xray')
-        "densenet_gen": GenDenseNet(weights = 'default'),
-        "densenet_nih": GenDenseNet(weights = 'nih'),
-        "densenet_chexpert": GenDenseNet(weights = 'chexpert'),
-        "densenet_pc": GenDenseNet(weights = 'pc')
+        # "linearnet": LinearNet(),
+        # "convnet": ConvNet(),
+        "resnet_default": GenResNet(weights = 'default'),
+        # "resnet_xray": GenResNet(weights = 'xray')
+        # "densenet_default": GenDenseNet(weights = 'default'),
+        # "densenet_nih": GenDenseNet(weights = 'nih'),
+        # "densenet_chexpert": GenDenseNet(weights = 'chexpert'),
+        # "densenet_pc": GenDenseNet(weights = 'pc')
     }
 
     for model_name, model in models.items():
@@ -70,7 +70,7 @@ def training_workflow(resample):
         trained_model, model_stats = train_model(model, train_loader, val_loader, EPOCHS, LEARNING_RATE)
         save_model_stats_and_weights(resample, model_name, trained_model, model_stats, config)
 
-    print(f'Models trained and saved in {config['path']['model_dir']}')
+    print(f'Models trained and saved in {config['path']['model_dir']['weights']}')
 
 if __name__ == "__main__":
     resample_choice = input("Which dataset would you like to train on? (unsampled/resampled): ").strip().lower() == "resampled"

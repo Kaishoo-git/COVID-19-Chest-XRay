@@ -56,3 +56,10 @@ def stratified_split(dataset, resample = False, random_state = 44):
 
     return train, val, test
 
+def process_all(data):
+    res = []
+    for i in range(len(data)):
+        img, lab = data[i]['img'][0], data[i]['lab'][3]
+        img = cv2.resize(img, (224, 224))
+        res.append({'img': img, 'lab': lab})
+    return res

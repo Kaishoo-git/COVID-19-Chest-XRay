@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
-from torch.optim import lr_scheduler
 import time
 import copy
+import numpy as np
+from torch.optim import lr_scheduler
+
 
 def train_model(model, train_loader, validation_loader, epochs, learning_rate, grad_criterion = nn.BCEWithLogitsLoss()):
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
@@ -110,3 +112,4 @@ def get_metrics(model, test_loader):
     print(f"Precision: {prec:.4f} | Recall: {recall:.4f} | F1: {f1:.4f} | Predicted positives: {t} | Predicted negatives: {f} | Total: {n}")
     metrics = {'rec': recall, 'prec': prec, 'f1': f1}
     return metrics
+

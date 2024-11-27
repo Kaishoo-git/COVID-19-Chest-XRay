@@ -78,9 +78,9 @@ class ConvNet(BaseModel):
         self.avgpool = torch.nn.AdaptiveAvgPool2d(1)
         self.classifier = torch.nn.Linear(256, 1, bias=True)
 
-class GenResNet18(BaseModel):
+class GenResNet(BaseModel):
     def __init__(self, weights='default'):
-        super(GenResNet18, self).__init__()
+        super(GenResNet, self).__init__()
         valid_weights = {'default', 'xray'}
         if weights not in valid_weights:
             raise ValueError(f"Invalid weights: {weights}. Choose from {valid_weights}.")
@@ -145,3 +145,30 @@ class GenDenseNet(BaseModel):
         self.avgpool = torch.nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = torch.nn.Linear(self.densenet.classifier.in_features, 1)
 
+def get_model(model_name, **kwargs):
+    """
+    Returns an instance of a model based on the input string.
+
+    Args:
+        model_name (str): The name of the model to retrieve.
+        **kwargs: Additional arguments for model initialization (e.g., weights).
+
+    Returns:
+        torch.nn.Module: The corresponding model instance.
+
+    Raises:
+        ValueError: If the model_name is invalid.
+    """
+    model_mapping = {
+        "linear": LinearNet,
+        "convnet": ConvNet,
+        "resnet": GenResNet,
+        "densenet": GenDenseNet,
+    }
+
+    if model_name not in model_mapping:
+        raise ValueError(f"Invalid model name '{model_name}'. Choose from {list(model_mapping.keys())}.")
+    if kwargs['weights']:
+        return model_mapping[model_name](kwargs['weights'])
+    else:
+        return model_mapping[model_name]()

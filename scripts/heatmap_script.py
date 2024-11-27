@@ -1,8 +1,7 @@
 import yaml
 
-from modules.explain import vis_comparison
-
 from evaluate_script import get_models
+from modules.metrics import plot_loss_and_metric, plot_roc_auc, create_table
 
 def explainable_workflow(resample):
     with open('config/config.yaml', 'r') as f:
