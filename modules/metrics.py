@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import torch
 import numpy as np
 import pandas as pd
-from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix
 
 def plot_loss_and_metric(epochs, train_loss, val_loss, train_metric, test_metric, model_name, save_path = None):
     fig, axes = plt.subplots(1, 2, figsize=(16, 6)) 

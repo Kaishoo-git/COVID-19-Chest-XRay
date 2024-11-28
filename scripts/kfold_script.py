@@ -7,39 +7,43 @@ import json
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import DataLoader
 from imblearn.over_sampling import RandomOverSampler
+from collections import Counter
 
 from modules.datasets import Covid19DataSet
 from modules.models import get_model
 from modules.training import get_metrics
 
-def cross_validate(model_class, dataset, k, batch_size, epochs, random_state, num_workers):
+def cross_validate(model_class, dataset, k, batch_size, epochs, random_state, num_workers, resample):
     skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=random_state)
 
-    features, labels = dataset.features, dataset.labels 
-
-    all_metrics = []
+    features, labels = np.array(dataset['features'], dtype = np.float64), np.array(dataset['labels'], dtype = np.float64)
+    all_metrics = {}
 
     for fold, (train_idx, test_idx) in enumerate(skf.split(features, labels)):
-        print(f"Processing fold {fold + 1}/{k}...")
 
-        train_data, test_data = dataset[train_idx], dataset[test_idx]
+        print(f"Fold {fold + 1}/{k}")
+        Xtrain, ytrain = features[train_idx], labels[train_idx]
+        Xtest, ytest = features[test_idx], labels[test_idx]
 
-        ros = RandomOverSampler(random_state=random_state)
-        X = [d['img'] for d in train_data]  
-        y = [d['lab'] for d in train_data]  
-        X_resampled, y_resampled = ros.fit_resample(np.array(X).reshape(len(X), -1), y)
-        train_data_resampled = [{'img': img, 'lab': label} for img, label in zip(X_resampled, y_resampled)]
+        if resample:
+            ros = RandomOverSampler(random_state=random_state)
+            X_flattened = Xtrain.reshape(len(Xtrain), -1)
+            X_resampled_flattened, y_resampled = ros.fit_resample(X_flattened, ytrain)
+            X_resampled = X_resampled_flattened.reshape(-1, 224, 224)
 
-        train_dataset = Covid19DataSet(train_data_resampled, transform='vanilla')
-        test_dataset = Covid19DataSet(test_data, transform='vanilla')
+            train_dataset = Covid19DataSet(X_resampled, y_resampled, transform='augment')
+        else:
+            train_dataset = Covid19DataSet(Xtrain, ytrain, transform='vanilla')
+
+        test_dataset = Covid19DataSet(Xtest, ytest, transform='vanilla')
 
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers = num_workers)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers = num_workers)
 
         if len(model_class) > 1:
-            model = get_model(model_class[0], model_class[1])
+            model = get_model(model_class[0], weights = model_class[1])
         else:
-            model = get_model(model_class[0])
+            model = get_model(model_class[0], weights = None)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
         criterion = torch.nn.CrossEntropyLoss()
@@ -53,41 +57,26 @@ def cross_validate(model_class, dataset, k, batch_size, epochs, random_state, nu
                 loss.backward()
                 optimizer.step()
 
-        model.eval()
-        y_true, y_pred = [], []
-        with torch.no_grad():
-            for inputs, targets in test_loader:
-                outputs = model(inputs)
-                y_true.extend(targets.numpy())
-                y_pred.extend(torch.argmax(outputs, dim=1).cpu().numpy())
-
         try:
-            metrics = get_metrics(y_true, y_pred)
-            all_metrics.append(metrics)
+            metrics = get_metrics(model, test_loader)
+            all_metrics[f'Fold {fold+1}'] = metrics
         except Exception as e:
             print(f"Error during metrics computation for fold {fold}: {e}")
 
-    mean_metrics = {key: np.mean([m[key] for m in all_metrics]) for key in all_metrics[0]}
-    std_metrics = {key: np.std([m[key] for m in all_metrics]) for key in all_metrics[0]}
+    return all_metrics
 
-    print("Cross-validation results:")
-    print(f"Mean metrics: {mean_metrics}")
-    print(f"Std metrics: {std_metrics}")
-
-    return mean_metrics, std_metrics
-
-def save_model_performance(model_class, model_performance, config):
-    PERFORMANCE_PATH = config['model_dir']['performance']
+def save_model_performance(model_class, model_performance, config, resample):
+    PERFORMANCE_PATH = config['path']['model_dir']['performance']
     if len(model_class) > 1:
         model_name = f'{model_class[0]}_{model_class[1]}'
     else:
-        model_name = f'{model_class[1]}'
-    saved_file = f'{PERFORMANCE_PATH}_{model_name}.json'
+        model_name = f'{model_class[0]}'
+    saved_file = f'{PERFORMANCE_PATH}_{model_name}_{'resampled' if resample else 'unsampled'}.json'
     with open(saved_file, "w") as f:
         json.dump(model_performance, f, indent = 4)
     print(f"Model stats saved to {saved_file}")
 
-def kfold_workflow():
+def kfold_workflow(resample):
     with open('config/config.yaml', 'r') as f:
         config = yaml.safe_load(f)
 
@@ -97,18 +86,16 @@ def kfold_workflow():
     NUM_EPOCHS = config['training']['num_epochs']
     RANDOM_STATE = config['misc']['random_seed']
 
-    DATASET_PATH = config['data']['preprocessed']
+    DATASET_PATH = config['path']['dataset']['preprocessed']
     
     model_class = ('convnet',)
     with open(f"{DATASET_PATH}dataset.pkl", "rb") as f:
         dataset = pickle.load(f)
 
-    mean_metrics, std_metrics = cross_validate(model_class, dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS)
-    model_performance = {
-        'mean_metrics': mean_metrics,
-        'std_metrics': std_metrics
-    }
-    save_model_performance(model_class, model_performance, config)
+    model_performance = cross_validate(model_class, dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, resample)
+    save_model_performance(model_class, model_performance, config, resample)
 
 if __name__ == "__main__":
-    kfold_workflow()
+    resample_choice = input("Would you like to do resampling? (yes/no): ").strip().lower() == "yes"
+    print(f'Running script {'with' if resample_choice else 'without'} resampling')
+    kfold_workflow(resample = resample_choice)

@@ -4,7 +4,7 @@ import time
 import copy
 import numpy as np
 from torch.optim import lr_scheduler
-
+from sklearn.metrics import confusion_matrix
 
 def train_model(model, train_loader, validation_loader, epochs, learning_rate, grad_criterion = nn.BCEWithLogitsLoss()):
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
@@ -86,30 +86,16 @@ def train_model(model, train_loader, validation_loader, epochs, learning_rate, g
 def get_metrics(model, test_loader):
 
     model.eval()
-
+    y_true, y_pred = [], []
     with torch.no_grad():
-        tp = tn = fp = fn = t = f = n = 0
-        for j, (images, labels) in enumerate(test_loader):
+        for inputs, targets in test_loader:
+            y_true.extend(targets.numpy())
+            y_pred.extend(torch.sigmoid(model(inputs)) >= 0.5)
 
-            outputs = model(images)
-            y_preds = (torch.sigmoid(outputs) >= 0.5).float()
-            
-            k = y_preds.size(dim = 0)
-            n += k
-
-            for i in range(k):
-                pred_val, label_val = y_preds[i].item(), labels[i].item()
-                tp += (pred_val == label_val == 1)
-                tn += (pred_val == label_val == 0)
-                fp += (pred_val == 1 and label_val == 0)
-                fn += (pred_val == 0 and label_val == 1)
-                f += (pred_val == 0)
-                t += (pred_val == 1)
-
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-    prec = tp / (tp + fp) if (tp + fp) > 0 else 0
-    f1 = (2*tp) / (2*tp + fp + fn) if (2*tp + fp + fn) > 0 else 0
-    print(f"Precision: {prec:.4f} | Recall: {recall:.4f} | F1: {f1:.4f} | Predicted positives: {t} | Predicted negatives: {f} | Total: {n}")
-    metrics = {'rec': recall, 'prec': prec, 'f1': f1}
-    return metrics
+    cm = confusion_matrix(y_true, y_pred)
+    prec = cm[1,1]/(cm[1,1]+cm[0,1]) if (cm[1,1]+cm[0,1]) > 0 else 0
+    rec = cm[1,1]/(cm[1,1]+cm[1,0]) if (cm[1,1]+cm[1,0]) > 0 else 0
+    f1 = (2*cm[1,1])/(2*cm[1,1]+cm[0,1]+cm[1,0]) if (2*cm[1,1]+cm[0,1]+cm[1,0]) > 0 else 0
+    print(f"Precision: {prec:.4f} | Recall: {rec:.4f} | F1: {f1:.4f}" )
+    return {'precision': prec, 'recall': rec, 'f1': f1}
 
