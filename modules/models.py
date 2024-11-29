@@ -145,6 +145,40 @@ class GenDenseNet(BaseModel):
         self.avgpool = torch.nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = torch.nn.Linear(self.densenet.classifier.in_features, 1)
 
+class SparseAutoEncoder(torch.nn.Module):
+    def __init__(self):
+        super(SparseAutoEncoder, self).__init__()
+        # Encoder
+        self.encoder = torch.nn.Sequential(
+            torch.nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1),  
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),  
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1), 
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1), 
+            torch.nn.ReLU()
+        )
+        # Decoder
+        self.decoder = torch.nn.Sequential(
+            torch.nn.ConvTranspose2d(256, 128, kernel_size=3, stride=1, padding=1, output_padding=1), 
+            torch.nn.ReLU(),
+            torch.nn.ConvTranspose2d(128, 64, kernel_size=3, stride=1, padding=1, output_padding=1),
+            torch.nn.ReLU(),
+            torch.nn.ConvTranspose2d(64, 32, kernel_size=3, stride=1, padding=1, output_padding=1), 
+            torch.nn.ReLU(),
+            torch.nn.ConvTranspose2d(32, 1, kernel_size=3, stride=1, padding=1, output_padding=1),  
+            torch.nn.Sigmoid(),  # Use Sigmoid for normalized reconstruction
+        )
+
+    def forward(self, x):
+        # Encode
+        latent = self.encoder(x)
+        # Decode
+        reconstructed = self.decoder(latent)
+        return latent, reconstructed
+
+
 def get_model(model_name, **kwargs):
     """
     Returns an instance of a model based on the input string.

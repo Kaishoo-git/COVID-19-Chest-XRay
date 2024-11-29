@@ -7,6 +7,13 @@ from sklearn.decomposition import PCA
 from matplotlib.colors import LinearSegmentedColormap
 from PIL import Image
 
+def generate_heatmap(model, test_dataloader):
+    """
+    Arguments: nn.module, DataLoader
+    returns: positive and negative heatmap overlays
+    """
+    pass
+
 def vis_comparison(model, pos_img, neg_img, save_path = None):
     custom_cmap = LinearSegmentedColormap.from_list("black_blue", ["black", "blue"])
     fig, axes = plt.subplots(1, 4, figsize=(20, 6)) 

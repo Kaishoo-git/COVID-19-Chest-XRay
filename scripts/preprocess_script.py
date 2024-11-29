@@ -13,14 +13,14 @@ def preprocess_workflow():
     DATASET_PATH = config['path']['dataset']['preprocessed']
 
     data = xrv.datasets.COVID19_Dataset(imgpath = IMG_PATH, csvpath = CSV_PATH)
-    # train, val, test = stratified_split(data, RANDOM_STATE)
-    # print("Downloading")
-    # with open(f"{DATASET_PATH}train.pkl", "wb") as f:
-    #     pickle.dump(train, f)
+    train, test = stratified_split(data, RANDOM_STATE)
+    print("Downloading")
+    with open(f"{DATASET_PATH}train.pkl", "wb") as f:
+        pickle.dump(train, f)
     # with open(f"{DATASET_PATH}val.pkl", "wb") as f:
     #     pickle.dump(val, f)
-    # with open(f"{DATASET_PATH}test.pkl", "wb") as f:
-    #     pickle.dump(test, f)
+    with open(f"{DATASET_PATH}test.pkl", "wb") as f:
+        pickle.dump(test, f)
 
     # dataset = process_all(data)
     # with open(f"{DATASET_PATH}dataset.pkl", "wb") as f:

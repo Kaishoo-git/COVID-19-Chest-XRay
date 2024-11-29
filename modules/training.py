@@ -6,9 +6,11 @@ import numpy as np
 from torch.optim import lr_scheduler
 from sklearn.metrics import confusion_matrix
 
-def train_model(model, train_loader, validation_loader, epochs, learning_rate, grad_criterion = nn.BCEWithLogitsLoss()):
+def train_model(model, train_loader, validation_loader, epochs, learning_rate):
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
+    grad_criterion = nn.BCEWithLogitsLoss()
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.5, patience = 2, threshold = 1e-4, min_lr = 1e-6)
+
     best_model = copy.deepcopy(model.state_dict())
     t_loss, t_prec, t_rec, t_f1, v_loss, v_prec, v_rec, v_f1 = [], [], [], [], [], [], [], []
     best_loss, best_f1 = 1e10, 0.0
@@ -99,3 +101,34 @@ def get_metrics(model, test_loader):
     print(f"Precision: {prec:.4f} | Recall: {rec:.4f} | F1: {f1:.4f}" )
     return {'precision': prec, 'recall': rec, 'f1': f1}
 
+def kl_divergence(p, p_hat):
+    """
+    p: Target sparsity (e.g., 0.05)
+    p_hat: Mean activation of the latent space
+    """
+    return p * torch.log(p / (p_hat + 1e-10)) + (1 - p) * torch.log((1 - p) / (1 - p_hat + 1e-10))
+
+
+def train_encoder(model, data_loader, epochs, learning_rate):
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = nn.MSELoss() 
+
+    target_sparsity = 0.05  
+    beta = 1e-3  # Sparsity penalty weight, higher for more sparsity
+
+    for epoch in range(epochs):
+        for batch in data_loader:
+            inputs = batch[0]
+            optimizer.zero_grad()
+
+            latent, outputs = model(inputs)
+
+            recon_loss = criterion(outputs, inputs)
+
+            latent_mean = torch.mean(latent, dim=(0, 2, 3))  # Average over batch, height, and width
+            sparsity_loss = kl_divergence(target_sparsity, latent_mean).mean()
+
+            loss = recon_loss + beta * sparsity_loss
+            loss.backward()
+            optimizer.step()
+    return model

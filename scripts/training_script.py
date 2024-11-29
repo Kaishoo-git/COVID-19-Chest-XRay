@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 from modules.datasets import Covid19DataSet
 from modules.models import get_model
-from modules.training import train_model
+from modules.training import train_model, train_autoencoder
 
 
 def save_model_stats_and_weights(model_name, trained_model, model_stats, config):

@@ -63,7 +63,7 @@ def cross_validate(model_class, dataset, k, batch_size, epochs, random_state, nu
         except Exception as e:
             print(f"Error during metrics computation for fold {fold}: {e}")
 
-    return all_metrics
+    return model, all_metrics
 
 def save_model_performance(model_class, model_performance, config, resample):
     PERFORMANCE_PATH = config['path']['model_dir']['performance']
@@ -71,10 +71,20 @@ def save_model_performance(model_class, model_performance, config, resample):
         model_name = f'{model_class[0]}_{model_class[1]}'
     else:
         model_name = f'{model_class[0]}'
-    saved_file = f'{PERFORMANCE_PATH}_{model_name}_{'resampled' if resample else 'unsampled'}.json'
+    saved_file = f'{PERFORMANCE_PATH}_{model_name}{'' if resample else '_unsampled'}.json'
     with open(saved_file, "w") as f:
         json.dump(model_performance, f, indent = 4)
     print(f"Model stats saved to {saved_file}")
+
+def save_model(model_class, trained_model, config):
+    if len(model_class) > 1:
+        model_name = f'{model_class[0]}_{model_class[1]}'
+    else:
+        model_name = f'{model_class[0]}'
+    model_save_dir = config['path']['model_dir']['weights']
+    model_path = f"{model_save_dir}{model_name}.pth"
+    torch.save(trained_model.state_dict(), model_path)
+    print(f"{model_name} weights saved to {model_path}")
 
 def kfold_workflow(resample):
     with open('config/config.yaml', 'r') as f:
@@ -89,10 +99,11 @@ def kfold_workflow(resample):
     DATASET_PATH = config['path']['dataset']['preprocessed']
     
     model_class = ('convnet',)    # Change model architecture to test it's performance
-    with open(f"{DATASET_PATH}dataset.pkl", "rb") as f:
+    with open(f"{DATASET_PATH}train.pkl", "rb") as f:
         dataset = pickle.load(f)
 
-    model_performance = cross_validate(model_class, dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, resample)
+    trained_model, model_performance = cross_validate(model_class, dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, resample)
+    save_model(model_class, trained_model)
     save_model_performance(model_class, model_performance, config, resample)
 
 if __name__ == "__main__":
