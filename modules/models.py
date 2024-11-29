@@ -148,36 +148,41 @@ class GenDenseNet(BaseModel):
 class SparseAutoEncoder(torch.nn.Module):
     def __init__(self):
         super(SparseAutoEncoder, self).__init__()
-        # Encoder
         self.encoder = torch.nn.Sequential(
-            torch.nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1),  
+            torch.nn.Conv2d(1, 32, kernel_size=3, stride=1),  
             torch.nn.ReLU(),
-            torch.nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),  
+            torch.nn.Conv2d(32, 64, kernel_size=3, stride=1),  
             torch.nn.ReLU(),
-            torch.nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1), 
+            torch.nn.Conv2d(64, 128, kernel_size=3, stride=1), 
             torch.nn.ReLU(),
-            torch.nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1), 
+            torch.nn.Conv2d(128, 256, kernel_size=3, stride=1), 
             torch.nn.ReLU()
         )
-        # Decoder
         self.decoder = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(256, 128, kernel_size=3, stride=1, padding=1, output_padding=1), 
+            torch.nn.ConvTranspose2d(256, 128, kernel_size=3, stride=1), 
             torch.nn.ReLU(),
-            torch.nn.ConvTranspose2d(128, 64, kernel_size=3, stride=1, padding=1, output_padding=1),
+            torch.nn.ConvTranspose2d(128, 64, kernel_size=3, stride=1),
             torch.nn.ReLU(),
-            torch.nn.ConvTranspose2d(64, 32, kernel_size=3, stride=1, padding=1, output_padding=1), 
+            torch.nn.ConvTranspose2d(64, 32, kernel_size=3, stride=1), 
             torch.nn.ReLU(),
-            torch.nn.ConvTranspose2d(32, 1, kernel_size=3, stride=1, padding=1, output_padding=1),  
-            torch.nn.Sigmoid(),  # Use Sigmoid for normalized reconstruction
+            torch.nn.ConvTranspose2d(32, 1, kernel_size=3, stride=1),  
+            torch.nn.Sigmoid(),  
         )
 
     def forward(self, x):
-        # Encode
         latent = self.encoder(x)
-        # Decode
         reconstructed = self.decoder(latent)
         return latent, reconstructed
 
+class ConvNetWithEncoder(torch.nn.Module):
+    def __init__(self, encoder):
+        super(ConvNetWithEncoder, self).__init__()
+        self.features = encoder
+        self.avgpool = torch.nn.AdaptiveAvgPool2d((1, 1))
+        self.classifier = torch.nn.Sequential(
+            torch.nn.Flatten(),
+            torch.nn.Linear(256, 1, bias = True)
+        )
 
 def get_model(model_name, **kwargs):
     """
@@ -198,6 +203,8 @@ def get_model(model_name, **kwargs):
         "convnet": ConvNet,
         "resnet": GenResNet,
         "densenet": GenDenseNet,
+        "convnet_encoder": ConvNetWithEncoder,
+        "autoencoder": SparseAutoEncoder
     }
 
     if model_name not in model_mapping:

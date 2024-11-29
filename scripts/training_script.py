@@ -3,9 +3,7 @@ import json
 import torch
 import pickle
 
-from torch.utils.data import DataLoader
 
-from modules.datasets import Covid19DataSet
 from modules.models import get_model
 from modules.training import train_model, train_autoencoder
 
@@ -22,27 +20,6 @@ def save_model_stats_and_weights(model_name, trained_model, model_stats, config)
     with open(stats_path, "w") as f:
         json.dump(model_stats, f, indent = 4)
     print(f"Model stats saved to {stats_path}")
-
-
-def get_loaders(batch_size, num_workers, config):
-    DATALOADER_PATH = config['path']['dataset']['preprocessed']
-
-    with open(f"{DATALOADER_PATH}train.pkl", "rb") as f:
-        train_data = pickle.load(f)
-    with open(f"{DATALOADER_PATH}val.pkl", "rb") as f:
-        val_data = pickle.load(f)
-    with open(f"{DATALOADER_PATH}test.pkl", "rb") as f:
-        test_data = pickle.load(f)
-    
-    train_dataset = Covid19DataSet(train_data['features'], train_data['labels'], 'augment')
-    val_dataset = Covid19DataSet(val_data['features'], val_data['labels'])
-    test_dataset = Covid19DataSet(test_data['features'], val_data['labels'])
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-
-    return train_loader, val_loader, test_loader
 
 def training_workflow():
     print('Running training script')

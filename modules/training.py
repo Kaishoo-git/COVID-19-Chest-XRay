@@ -109,26 +109,3 @@ def kl_divergence(p, p_hat):
     return p * torch.log(p / (p_hat + 1e-10)) + (1 - p) * torch.log((1 - p) / (1 - p_hat + 1e-10))
 
 
-def train_encoder(model, data_loader, epochs, learning_rate):
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    criterion = nn.MSELoss() 
-
-    target_sparsity = 0.05  
-    beta = 1e-3  # Sparsity penalty weight, higher for more sparsity
-
-    for epoch in range(epochs):
-        for batch in data_loader:
-            inputs = batch[0]
-            optimizer.zero_grad()
-
-            latent, outputs = model(inputs)
-
-            recon_loss = criterion(outputs, inputs)
-
-            latent_mean = torch.mean(latent, dim=(0, 2, 3))  # Average over batch, height, and width
-            sparsity_loss = kl_divergence(target_sparsity, latent_mean).mean()
-
-            loss = recon_loss + beta * sparsity_loss
-            loss.backward()
-            optimizer.step()
-    return model

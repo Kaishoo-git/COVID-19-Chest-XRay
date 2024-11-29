@@ -1,14 +1,16 @@
 import torch
 import yaml
 import json
+import pickle
 import pandas as pd
+from torch.utils.data import DataLoader
 
+from modules.datasets import Covid19DataSet
 from training_script import get_loaders
 from modules.models import get_model
 from modules.training import get_metrics
-from modules.metrics import plot_loss_and_metric, plot_roc_auc, create_table
+from modules.metrics import plot_roc_auc, create_table
 
-# [('convnet',), ('resnet', 'default'), ('densenet', 'nih')]
 def get_models(model_names, config):
     MODELS_PATH = config['path']['model_dir']['weights']
     models = {}
@@ -32,15 +34,21 @@ def get_models(model_names, config):
 
     return models
 
-def get_model_stats(resample, model_name, config):
-    print("To be implemented, do not use")
-    pass
-    LOSS_PATH = config['path']['model_save_dir']['stats']
-    stats = f'{LOSS_PATH}models_stats.json'
+def get_loaders(batch_size, num_workers, config):
+    DATALOADER_PATH = config['path']['dataset']['preprocessed']
+
+    with open(f"{DATALOADER_PATH}train.pkl", "rb") as f:
+        train_data = pickle.load(f)
+    with open(f"{DATALOADER_PATH}test.pkl", "rb") as f:
+        test_data = pickle.load(f)
     
-    with open(stats, 'r') as f:
-        model_stats = json.load(f)
-    return model_stats
+    train_dataset = Covid19DataSet(train_data['features'], train_data['labels'], 'augment')
+    test_dataset = Covid19DataSet(test_data['features'], test_data['labels'])
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+    return train_loader, test_loader
 
 def save_table(data, config):
     TABLES_PATH = config['path']['visualisations']['tables']
@@ -53,7 +61,6 @@ def save_table(data, config):
     df.to_csv(f"{TABLES_PATH}models_metrics.csv", index=False)
     print("Table saved to models_metrics.csv")
 
-
 def evaluate_workflow(resample):
     with open('config/config.yaml', 'r') as f:
         config = yaml.safe_load(f)
@@ -61,10 +68,10 @@ def evaluate_workflow(resample):
     NUM_WORKERS = config['training']['num_workers']
     PLOTS_PATH = config['path']['visualisations']['plots']
 
-    train_loader, _, test_loader = get_loaders(resample, BATCH_SIZE, NUM_WORKERS, config)
+    train_loader, test_loader = get_loaders(resample, BATCH_SIZE, NUM_WORKERS, config)
 
     # Modify this by looking at the models available at models/weights
-    model_names = [('convnet',), ('resnet', 'default'), ('densenet', 'nih')]
+    model_names = [('convnet',), ('resnet', 'default'), ('densenet', 'default')]
 
     models = get_models(resample, model_names, config)
     model_metrics = {}
