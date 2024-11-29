@@ -174,7 +174,7 @@ class SparseAutoEncoder(torch.nn.Module):
         reconstructed = self.decoder(latent)
         return latent, reconstructed
 
-class ConvNetWithEncoder(torch.nn.Module):
+class ConvNetWithEncoder(BaseModel):
     def __init__(self, encoder):
         super(ConvNetWithEncoder, self).__init__()
         self.features = encoder
@@ -183,6 +183,23 @@ class ConvNetWithEncoder(torch.nn.Module):
             torch.nn.Flatten(),
             torch.nn.Linear(256, 1, bias = True)
         )
+
+class EnsembleModel(torch.nn.Module):
+    def __init__(self, model1, model2):
+        super(EnsembleModel, self).__init__()
+        self.model1 = model1
+        self.model2 = model2
+        self.classifier = torch.nn.Linear(1, 1)
+
+    def forward(self, x):
+        out1 = self.model1(x)
+        out2 = self.model2(x)
+
+        combined = (out1+out2)/2
+
+        output = self.classifier(combined, bias = True)
+
+        return output
 
 def get_model(model_name, **kwargs):
     """

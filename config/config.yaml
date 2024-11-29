@@ -17,7 +17,7 @@ training:
   learning_rate: 0.001
   num_epochs: 5
   num_workers: 0
-  k_folds: 10
+  k_folds: 5
 
 misc:
   headers: ['Model', 'Precision', 'Recall', 'F1 Score']

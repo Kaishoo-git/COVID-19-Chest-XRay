@@ -9,8 +9,10 @@ from torch.utils.data import DataLoader
 from imblearn.over_sampling import RandomOverSampler
 
 from modules.datasets import Covid19DataSet
-from modules.models import get_model
+from modules.models import get_model, EnsembleModel
 from modules.training import get_metrics, kl_divergence
+
+from metrics_script import get_models
 
 
 def cross_validate(model_class, dataset, k, batch_size, epochs, random_state, num_workers, resample):
@@ -68,10 +70,77 @@ def cross_validate_autoencoder(dataset, k, batch_size, epochs, random_state, num
     validation_losses = []  # To store validation loss for each fold
     skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=random_state)
 
-    features, labels = np.array(dataset['features'], dtype = np.float64), np.array(dataset['labels'], dtype = np.float64)
-    model = get_model('autoencoder', weights = None)
-    target_sparsity = 0.05  
+    # Move model to device
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    features = np.array(dataset['features'], dtype=np.float64)
+    labels = np.array(dataset['labels'], dtype=np.float64)
+    model = get_model('autoencoder', weights=None) #.to(device)
+
+    target_sparsity = 0.05
     beta = 1e-3  # Sparsity penalty weight
+
+    for fold, (train_idx, test_idx) in enumerate(skf.split(features, labels)):
+        print(f"Fold {fold + 1}/{k}")
+        Xtrain, ytrain = features[train_idx], labels[train_idx]
+        Xtest, ytest = features[test_idx], labels[test_idx]
+
+        # Resampling
+        ros = RandomOverSampler(random_state=random_state)
+        X_flattened = Xtrain.reshape(len(Xtrain), -1)
+        X_resampled_flattened, y_resampled = ros.fit_resample(X_flattened, ytrain)
+        X_resampled = X_resampled_flattened.reshape(-1, 224, 224)
+
+        # Datasets and DataLoaders
+        train_dataset = Covid19DataSet(X_resampled, y_resampled, transform='augment')
+        test_dataset = Covid19DataSet(Xtest, ytest, transform='vanilla')
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        criterion = torch.nn.MSELoss()
+
+        for epoch in range(epochs):
+            print(epoch)
+            # Training phase
+            model.train()
+            for inputs, _ in train_loader:
+                inputs = inputs #.to(device)  # Move inputs to device
+                optimizer.zero_grad()
+
+                latent, outputs = model(inputs)
+                recon_loss = criterion(outputs, inputs)
+
+                # Sparsity loss
+                latent_mean = torch.mean(latent, dim=(0, 2, 3))
+                sparsity_loss = kl_divergence(target_sparsity, latent_mean).mean()
+
+                # Total loss
+                loss = recon_loss + beta * sparsity_loss
+                loss.backward()
+                optimizer.step()
+
+        # Validation phase
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for inputs, _ in test_loader:
+                inputs = inputs #.to(device)  # Move inputs to device
+                _, outputs = model(inputs)
+                val_loss += criterion(outputs, inputs).item()
+
+        val_loss /= len(test_loader)  
+        validation_losses.append(val_loss)
+        print(f"Validation Loss for Fold {fold + 1}: {val_loss:.4f}")
+
+    return model, validation_losses
+
+def cross_validate_convencoder(config, dataset, k, batch_size, epochs, random_state, num_workers, resample):
+    model = load_convnet_autoencod(config)
+    skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=random_state)
+
+    features, labels = np.array(dataset['features'], dtype = np.float64), np.array(dataset['labels'], dtype = np.float64)
+    all_metrics = {}
 
     for fold, (train_idx, test_idx) in enumerate(skf.split(features, labels)):
 
@@ -79,12 +148,15 @@ def cross_validate_autoencoder(dataset, k, batch_size, epochs, random_state, num
         Xtrain, ytrain = features[train_idx], labels[train_idx]
         Xtest, ytest = features[test_idx], labels[test_idx]
 
-        ros = RandomOverSampler(random_state=random_state)
-        X_flattened = Xtrain.reshape(len(Xtrain), -1)
-        X_resampled_flattened, y_resampled = ros.fit_resample(X_flattened, ytrain)
-        X_resampled = X_resampled_flattened.reshape(-1, 224, 224)
+        if resample:
+            ros = RandomOverSampler(random_state=random_state)
+            X_flattened = Xtrain.reshape(len(Xtrain), -1)
+            X_resampled_flattened, y_resampled = ros.fit_resample(X_flattened, ytrain)
+            X_resampled = X_resampled_flattened.reshape(-1, 224, 224)
 
-        train_dataset = Covid19DataSet(X_resampled, y_resampled, transform='augment')
+            train_dataset = Covid19DataSet(X_resampled, y_resampled, transform='augment')
+        else:
+            train_dataset = Covid19DataSet(Xtrain, ytrain, transform='vanilla')
 
         test_dataset = Covid19DataSet(Xtest, ytest, transform='vanilla')
 
@@ -92,41 +164,26 @@ def cross_validate_autoencoder(dataset, k, batch_size, epochs, random_state, num
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers = num_workers)
 
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-        criterion = torch.nn.MSELoss()
+        criterion = torch.nn.CrossEntropyLoss()
 
         for epoch in range(epochs):
-            for phase in ['train','test']:
-                if phase == 'train':
-                    model.train()
-                    for inputs, _ in train_loader:
-                        optimizer.zero_grad()
-                        latent, outputs = model(inputs)
-                        recon_loss = criterion(outputs, inputs)
+            model.train()
+            for inputs, targets in train_loader:
+                optimizer.zero_grad()
+                outputs = model(inputs)
+                loss = criterion(outputs, targets)
+                loss.backward()
+                optimizer.step()
 
-                        # Sparsity loss
-                        latent_mean = torch.mean(latent, dim=(0, 2, 3))  # Average over batch, height, and width
-                        sparsity_loss = kl_divergence(target_sparsity, latent_mean).mean()
+        try:
+            metrics = get_metrics(model, test_loader)
+            all_metrics[f'Fold {fold+1}'] = metrics
+        except Exception as e:
+            print(f"Error during metrics computation for fold {fold}: {e}")
 
-                        # Total loss
-                        loss = recon_loss + beta * sparsity_loss
-                        loss.backward()
-                        optimizer.step()
-                else:
-                    model.eval()
-                    val_loss = 0.0
-                    with torch.no_grad():
-                        for inputs, _ in test_loader:  
-                            inputs = inputs.to(next(model.parameters()).device)
-                            _, outputs = model(inputs)
-                            val_loss += criterion(outputs, inputs).item()
+    return model, all_metrics
 
-                    val_loss /= len(test_loader)  
-                    validation_losses.append(val_loss)
-                    print(f"Validation Loss for Fold {fold + 1}: {val_loss:.4f}")
-    return model, validation_losses
-
-def cross_validate_convencoder(config, dataset, k, batch_size, epochs, random_state, num_workers, resample):
-    model = load_convnet_autoencod(config)
+def cross_validate_modified(model, dataset, k, batch_size, epochs, random_state, num_workers, resample):
     skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=random_state)
 
     features, labels = np.array(dataset['features'], dtype = np.float64), np.array(dataset['labels'], dtype = np.float64)
@@ -234,6 +291,12 @@ def kfold_workflow(resample):
     save_model(model_class, trained_model, config)
     with open('validation_losses.pkl', 'wb') as f:
         pickle.dump(loss, f)
+
+    # model_names = [('resnet', 'default'), ('densenet', 'nih'), ('autoencoder',)]
+    # models = get_models(model_names, config)
+    # ensemble_model = EnsembleModel(models['resnet'], models['densenet'], models['autoencoder'])
+    # trained_model, model_performance = cross_validate_modified(ensemble_model, dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, resample)
+    
 
 if __name__ == "__main__":
     resample_choice = input("Would you like to do resampling? (yes/no): ").strip().lower() == "yes"

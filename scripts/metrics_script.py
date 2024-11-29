@@ -6,7 +6,6 @@ import pandas as pd
 from torch.utils.data import DataLoader
 
 from modules.datasets import Covid19DataSet
-from training_script import get_loaders
 from modules.models import get_model
 from modules.training import get_metrics
 from modules.metrics import plot_roc_auc, create_table
