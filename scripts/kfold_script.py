@@ -88,7 +88,7 @@ def kfold_workflow(resample):
 
     DATASET_PATH = config['path']['dataset']['preprocessed']
     
-    model_class = ('convnet',)
+    model_class = ('convnet',)    # Change model architecture to test it's performance
     with open(f"{DATASET_PATH}dataset.pkl", "rb") as f:
         dataset = pickle.load(f)
 

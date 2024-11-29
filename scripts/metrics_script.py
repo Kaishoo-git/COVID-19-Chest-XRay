@@ -9,7 +9,7 @@ from modules.training import get_metrics
 from modules.metrics import plot_loss_and_metric, plot_roc_auc, create_table
 
 # [('convnet',), ('resnet', 'default'), ('densenet', 'nih')]
-def get_models(resample, model_names, config):
+def get_models(model_names, config):
     MODELS_PATH = config['path']['model_dir']['weights']
     models = {}
 
@@ -17,9 +17,9 @@ def get_models(resample, model_names, config):
         model_name = entry[0]
         weights = entry[1] if len(entry) > 1 else None
         if len(entry) > 1:
-            model_weight = f"{MODELS_PATH}{model_name}_{entry[1]}_{'resampled' if resample else 'unsampled'}.pth"
+            model_weight = f"{MODELS_PATH}{model_name}_{entry[1]}.pth"
         else:
-            model_weight = f"{MODELS_PATH}{model_name}_{'resampled' if resample else 'unsampled'}.pth"
+            model_weight = f"{MODELS_PATH}{model_name}.pth"
         try:
             model = get_model(model_name, weights = weights)
             model.load_state_dict(torch.load(model_weight))  
@@ -32,18 +32,17 @@ def get_models(resample, model_names, config):
 
     return models
 
-def get_model_stats(resample, config):
+def get_model_stats(resample, model_name, config):
+    print("To be implemented, do not use")
+    pass
     LOSS_PATH = config['path']['model_save_dir']['stats']
-    if resample:
-        stats = f'{LOSS_PATH}models_resampled_stats.json'
-    else:
-        stats = f'{LOSS_PATH}models_resampled_stats.json'
-
+    stats = f'{LOSS_PATH}models_stats.json'
+    
     with open(stats, 'r') as f:
         model_stats = json.load(f)
     return model_stats
 
-def save_table(data, resample, config):
+def save_table(data, config):
     TABLES_PATH = config['path']['visualisations']['tables']
     headers = config['misc']['headers']
     rows = [
@@ -51,7 +50,7 @@ def save_table(data, resample, config):
         for model_name, metrics in data.items()
     ]
     df = pd.DataFrame(rows, columns=headers)
-    df.to_csv(f"{TABLES_PATH}models_{'resampled' if resample else 'unsampled'}_metrics.csv", index=False)
+    df.to_csv(f"{TABLES_PATH}models_metrics.csv", index=False)
     print("Table saved to models_metrics.csv")
 
 
@@ -63,7 +62,10 @@ def evaluate_workflow(resample):
     PLOTS_PATH = config['path']['visualisations']['plots']
 
     train_loader, _, test_loader = get_loaders(resample, BATCH_SIZE, NUM_WORKERS, config)
+
+    # Modify this by looking at the models available at models/weights
     model_names = [('convnet',), ('resnet', 'default'), ('densenet', 'nih')]
+
     models = get_models(resample, model_names, config)
     model_metrics = {}
 
@@ -76,8 +78,8 @@ def evaluate_workflow(resample):
             model_metrics[f'{model_name} ({data})'] = metrics
     save_table(model_metrics, resample, config)
     
-    # save_path = f'{PLOTS_PATH}roc_plot.png'
-    # plot_roc_auc(models, test_loader, save_path)
+    save_path = f'{PLOTS_PATH}roc_plot.png'
+    plot_roc_auc(models, test_loader, save_path)
 
     print(f'Saved model stats and metrics to {PLOTS_PATH}')
 

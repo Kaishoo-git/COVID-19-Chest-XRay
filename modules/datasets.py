@@ -37,7 +37,7 @@ class Covid19DataSet(torch.utils.data.Dataset):
         return img_tensor, label_tensor
 
     def __len__(self):
-        return self.features.shape[0]
+        return len(self.features)
 
 def normalize(img):
     return np.divide(img + 1024, 2048)
