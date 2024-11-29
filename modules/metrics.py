@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import torch
 import numpy as np
 import pandas as pd
-from sklearn.metrics import roc_curve, roc_auc_score
+from sklearn.metrics import roc_curve, roc_auc_score, confusion_matrix
 
 def plot_loss_and_metric(epochs, train_loss, val_loss, train_metric, test_metric, model_name, save_path = None):
     fig, axes = plt.subplots(1, 2, figsize=(16, 6)) 
@@ -42,7 +42,8 @@ def plot_roc_auc(models, dataloader, save_path=None):
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     
-    for model_name, model in models.items():
+    text_shift = 0.02  
+    for i, (model_name, model) in enumerate(models.items()):
         model.eval()
         y_true, y_pred = [], []
 
@@ -55,25 +56,25 @@ def plot_roc_auc(models, dataloader, save_path=None):
         fpr, tpr, _ = roc_curve(y_true, y_pred)
         auc_score = roc_auc_score(y_true, y_pred)
 
-        plt.plot(fpr, tpr, label=model_name)
+        line, = plt.plot(fpr, tpr, label=model_name)
+
         plt.plot([0, 1], [0, 1], linestyle='--', color='gray')
 
         mid_point = len(fpr) // 2
         plt.text(
-            fpr[mid_point], tpr[mid_point], 
+            fpr[mid_point], 
+            tpr[mid_point] + (i * text_shift),  
             f'AUC = {auc_score:.2f}', 
-            fontsize=10, color=plt.gca().lines[-1].get_color()
+            fontsize=10, color=line.get_color()  
         )
 
     plt.legend(loc='lower right')
     plt.grid()
-
+    
     if save_path:
         plt.savefig(save_path, dpi=300)
         print(f"Plot saved to {save_path}")
-
     plt.show()
-
 
 def create_table(headers, data):
     df = pd.DataFrame(data, columns=headers)

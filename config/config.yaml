@@ -6,6 +6,7 @@ path:
   model_dir:
     weights: 'models/weights/'
     stats: 'models/stats/'
+    performance: 'models/performance/'
   visualisations:
     heatmaps: 'visualisations/heatmaps/'
     plots: 'visualisations/plots/'
@@ -16,6 +17,7 @@ training:
   learning_rate: 0.001
   num_epochs: 10
   num_workers: 0
+  k_folds: 5
 
 misc:
   headers: ['Model', 'Precision', 'Recall', 'F1 Score']
