@@ -1,90 +1,137 @@
 import torch
 import torch.nn as nn
-import time
-import copy
 import numpy as np
-from torch.optim import lr_scheduler
+
+from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import confusion_matrix
+from torch.utils.data import DataLoader
+from torch.optim import lr_scheduler
+from imblearn.over_sampling import RandomOverSampler
 
-def train_model(model, train_loader, validation_loader, epochs, learning_rate):
-    optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
-    grad_criterion = nn.BCEWithLogitsLoss()
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.5, patience = 2, threshold = 1e-4, min_lr = 1e-6)
+from modules.datasets import Covid19DataSet
 
-    best_model = copy.deepcopy(model.state_dict())
-    t_loss, t_prec, t_rec, t_f1, v_loss, v_prec, v_rec, v_f1 = [], [], [], [], [], [], [], []
-    best_loss, best_f1 = 1e10, 0.0
-    starttime = time.time()
+def train_model(model, dataset, k, batch_size, epochs, random_state, num_workers, resample, learning_rate):
+    skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=random_state)
+    features, labels = np.array(dataset['features'], dtype = np.float64), np.array(dataset['labels'], dtype = np.float64)
+    losses = []
 
-    for epoch in range(epochs):
+    for fold, (train_idx, test_idx) in enumerate(skf.split(features, labels)):
 
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()
-            else:
-                model.eval()  
-        
-            target_loader = train_loader if phase == 'train' else validation_loader
-            n_total = r_tp = r_fp = r_fn = epoch_loss = 0.0
-        
-            for i, (images, labels) in enumerate(target_loader):
-                n_total += images.size(dim = 0)
+        print(f"Fold {fold + 1}/{k}")
+        Xtrain, ytrain = features[train_idx], labels[train_idx]
+        Xtest, ytest = features[test_idx], labels[test_idx]
 
-                with torch.set_grad_enabled(phase == 'train'):
-                    # forward pass
-                    y_preds = model(images)
-                    pred_labels = (torch.sigmoid(y_preds) >= 0.5)
-                    loss = grad_criterion(y_preds, labels)
+        if resample:
+            ros = RandomOverSampler(random_state=random_state)
+            X_flattened = Xtrain.reshape(len(Xtrain), -1)
+            X_resampled_flattened, y_resampled = ros.fit_resample(X_flattened, ytrain)
+            X_resampled = X_resampled_flattened.reshape(-1, 224, 224)
+            train_dataset = Covid19DataSet(X_resampled, y_resampled, transform='augment')
+        else:
+            train_dataset = Covid19DataSet(Xtrain, ytrain, transform='vanilla')
+        test_dataset = Covid19DataSet(Xtest, ytest, transform='vanilla')
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers = num_workers)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers = num_workers)
 
-                    epoch_loss += loss.item()
-                    for j in range(pred_labels.size(dim = 0)):
-                        actual, pred = labels[j].item(), pred_labels[j].item()
-                        r_tp += 1 if (actual == 1 and pred == 1) else 0
-                        r_fp += 1 if (actual == 0 and pred == 1) else 0
-                        r_fn += 1 if (actual == 1 and pred == 0) else 0
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        grad_criterion = nn.BCEWithLogitsLoss()
+        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode = 'min', factor = 0.5, patience = 2, threshold = 1e-4, min_lr = 1e-6)
 
-                    if phase == 'train':
-                        # backward prop
-                        optimizer.zero_grad()
-                        loss.backward()
-                        optimizer.step()
+        for epoch in range(epochs):
 
-            avg_prec = r_tp / (r_tp + r_fp) if (r_tp + r_fp) > 0 else 0
-            avg_rec = r_tp / (r_tp + r_fn) if (r_tp + r_fn) > 0 else 0
-            avg_f1 = (2*r_tp) / (2*r_tp + r_fp + r_fn) if (2*r_tp + r_fp + r_fn) > 0 else 0
-
-            if phase == 'train':
-                t_loss.append(epoch_loss)
-                t_prec.append(avg_prec)
-                t_rec.append(avg_rec)
-                t_f1.append(avg_f1)
-                # scheduler step
-                scheduler.step(epoch_loss)    
-
-            if phase == 'val':
-                v_loss.append(epoch_loss)
-                v_prec.append(avg_prec)
-                v_rec.append(avg_rec)
-                v_f1.append(avg_f1)
-
-                if (t_loss[-1] + v_loss[-1]) < best_loss:
-                    best_loss, best_f1 = (t_loss[-1] + v_loss[-1]), t_f1[-1] 
-                    best_model = copy.deepcopy(model.state_dict())
+            for phase in ['train', 'val']:
+                if phase == 'train':
+                    model.train()
+                else:
+                    model.eval()  
             
-        print(f"Epoch [{epoch + 1}/{epochs}] |Training Loss: {t_loss[-1]:.4f} | Validation Loss: {v_loss[-1]:.4f} | Training F1: {t_f1[-1]:.4f}")
-    
-    elapsedtime = time.time() - starttime
-    mins, sec = elapsedtime//60, elapsedtime%60
+                target_loader = train_loader if phase == 'train' else test_loader
+                epoch_loss = 0.0
+            
+                for i, (images, labs) in enumerate(target_loader):
 
-    print(f"Training completed in {mins:.0f}mins {sec:.2f}s")
-    print(f"Best Loss: {best_loss:.4f} | Training F1: {best_f1:.4f}")
+                    with torch.set_grad_enabled(phase == 'train'):
+                        # forward pass
+                        y_preds = model(images)
+                        loss = grad_criterion(y_preds, labs)
+                        epoch_loss += loss.item()
 
-    model.load_state_dict(best_model)
-    stats = {'train': {'loss': t_loss, 'prec': t_prec, 'rec': t_rec, 'f1': t_f1},
-             'val': {'loss': v_loss, 'prec': v_prec, 'rec': v_rec, 'f1': v_f1},
-             'time': elapsedtime}
-    return model, stats
+                        if phase == 'train':
+                            # backward prop
+                            optimizer.zero_grad()
+                            loss.backward()
+                            optimizer.step()
+
+                if phase == 'train':
+                    scheduler.step(epoch_loss)    
+
+                if phase == 'val':
+                    losses.append(epoch_loss)
+
+    return model, losses
     
+def train_autoencoder(model, dataset, k, batch_size, epochs, random_state, num_workers):
+    validation_losses = []  # To store validation loss for each fold
+    skf = StratifiedKFold(n_splits=k, shuffle=True, random_state=random_state)
+    features = np.array(dataset['features'], dtype=np.float64)
+    labels = np.array(dataset['labels'], dtype=np.float64)
+
+    target_sparsity = 0.05
+    beta = 1e-3  # Sparsity penalty weight
+
+    for fold, (train_idx, test_idx) in enumerate(skf.split(features, labels)):
+        print(f"Fold {fold + 1}/{k}")
+        Xtrain, ytrain = features[train_idx], labels[train_idx]
+        Xtest, ytest = features[test_idx], labels[test_idx]
+
+        # Resampling
+        ros = RandomOverSampler(random_state=random_state)
+        X_flattened = Xtrain.reshape(len(Xtrain), -1)
+        X_resampled_flattened, y_resampled = ros.fit_resample(X_flattened, ytrain)
+        X_resampled = X_resampled_flattened.reshape(-1, 224, 224)
+
+        # Datasets and DataLoaders
+        train_dataset = Covid19DataSet(X_resampled, y_resampled, transform='augment')
+        test_dataset = Covid19DataSet(Xtest, ytest, transform='vanilla')
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+        criterion = torch.nn.MSELoss()
+
+        for epoch in range(epochs):
+            print(epoch)
+            # Training phase
+            model.train()
+            for inputs, _ in train_loader:
+                inputs = inputs 
+                optimizer.zero_grad()
+
+                latent, outputs = model(inputs)
+                recon_loss = criterion(outputs, inputs)
+                # Sparsity loss
+                latent_mean = torch.mean(latent, dim=(0, 2, 3))
+                sparsity_loss = kl_divergence(target_sparsity, latent_mean).mean()
+                # Total loss
+                loss = recon_loss + beta * sparsity_loss
+                loss.backward()
+                optimizer.step()
+
+        # Validation phase
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for inputs, _ in test_loader:
+                inputs = inputs 
+                _, outputs = model(inputs)
+                val_loss += criterion(outputs, inputs).item()
+
+        val_loss /= len(test_loader)  
+        validation_losses.append(val_loss)
+        print(f"Validation Loss for Fold {fold + 1}: {val_loss:.4f}")
+
+    return model, validation_losses
+
 def get_metrics(model, test_loader):
 
     model.eval()
