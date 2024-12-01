@@ -5,9 +5,9 @@ import pickle
 import json
 
 from modules.models import get_model, EnsembleModel
-from modules.training import train_model, train_autoencoder
+from modules.training import train_model, train_autoencoder, train_autoencoder_l21
 
-from metrics_script import get_models
+from metrics_script import load_model
 
 def save_model_performance(model_name, model_performance, config):
     PERFORMANCE_PATH = config['path']['model_dir']['performance']
@@ -48,25 +48,43 @@ def kfold_workflow():
     with open(f"{DATASET_PATH}train.pkl", "rb") as f:
         train_dataset = pickle.load(f)
 
-    # convnet = get_model('convnet', weights = None)
-    # convnetu, convnetu_perf = train_model(convnet, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, False, LEARNING_RATE)
-    # convnetr, convnetr_perf = train_model(convnet, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
+    # Train and save connvnet models
+    # convnetu = get_model('convnet', weights = None)
+    # convnetu, convnetu_perf = train_model(convnetu, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, False, LEARNING_RATE)
     # save_model('convnet_unsampled', convnetu, config)
     # save_model_performance('convnet_unsampled', convnetu_perf, config)
+    # convnetr = get_model('convnet', weights = None)
+    # convnetr, convnetr_perf = train_model(convnetr, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
     # save_model('convnet', convnetr, config)
     # save_model_performance('convnet', convnetr_perf, config)
     
+    # # Train and save resnet model
     # resnet = get_model('resnet', weights = 'default')
-    # resnet, resnet_p = train_model(resnet, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, False, LEARNING_RATE)
-    # save_model('resenet', resnet, config)
+    # resnet, resnet_p = train_model(resnet, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
+    # save_model('resnet', resnet, config)
     # save_model_performance('resnet', resnet_p, config)
 
+    # # Train and save densenet models
     weights = ['default', 'nih', 'chexpert', 'pc']
     for weight in weights:
         model = get_model('densenet', weights = weight)
-        model, model_p = train_model(model, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, False, LEARNING_RATE)
+        model, model_p = train_model(model, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
         save_model(f'densenet_{weight}', model, config)
         save_model_performance(f'densenet_{weight}', model_p, config)
+
+    autoe = get_model('autoencoder', weights = None)
+    autoekl, autoekl_p = train_autoencoder(autoe, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, LEARNING_RATE)
+    save_model('autoencoderkl', autoekl, config)
+    save_model_performance('autoencoderkl', autoekl_p, config)
+    autoel21, autoel21_p = train_autoencoder_l21(autoe, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, LEARNING_RATE)
+    save_model('autoencoderl21', autoel21, config)
+    save_model_performance('autoencoderl21', autoel21_p, config)
+
+    convnetae = load_convnet_autoencod(config)
+    convnetae, convnetae_p = train_model(convnetae, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
+    save_model('convnetae', convnetae, config)
+    save_model_performance('convnetae', convnetae_p, config)
+
 if __name__ == "__main__":
     kfold_workflow()
 

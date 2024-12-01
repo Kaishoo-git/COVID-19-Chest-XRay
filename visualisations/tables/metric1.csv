@@ -1,0 +1,5 @@
+Model,Precision,Recall,F1 Score,AUC Score
+convnet (train),0.8209,0.4603,0.5898,0.752
+convnet (test),0.7812,0.4854,0.5988,0.646
+convnet_unsampled (train),0.6695,0.9833,0.7966,0.7574
+convnet_unsampled (test),0.6536,0.9709,0.7812,0.7146

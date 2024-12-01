@@ -99,10 +99,11 @@ class GenResNet(BaseModel):
                 self.resnet.conv1.weight = torch.nn.Parameter(new_weights)
 
         for name, params in self.resnet.named_parameters():
-            if 'layer4' in name:
-                params.requires_grad = True
-            else:
-                params.requires_grad = False
+            params.requires_grad = False
+            # if 'layer4' in name:
+            #     params.requires_grad = True
+            # else:
+            #     params.requires_grad = False
 
         self.features = torch.nn.Sequential(
             self.resnet.conv1,

@@ -10,20 +10,6 @@ def explore_data(data):
             f += 1
     print(f"Data Size: {len(data)} | Postives: {p} | Negatives: {f}") 
 
-def find_positive(dataset):
-    for i in range(len(dataset)):
-        lab = dataset['lab'][i]
-        if lab == 1:
-            return i
-    return 'not found'
-
-def find_negative(dataset):
-    for i in range(len(dataset)):
-        lab = dataset['lab'][i]
-        if lab == 0:
-            return i
-    return 'not found'
-
 def show_image(data, idx):
     img = data['features'][idx]
     plt.imshow(img, cmap = 'gray') 

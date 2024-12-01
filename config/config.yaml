@@ -5,7 +5,6 @@ path:
     preprocessed: 'data/preprocessed/'
   model_dir:
     weights: 'models/weights/'
-    stats: 'models/stats/'
     performance: 'models/performance/'
   visualisations:
     heatmaps: 'visualisations/heatmaps/'
@@ -20,5 +19,5 @@ training:
   k_folds: 5
 
 misc:
-  headers: ['Model', 'Precision', 'Recall', 'F1 Score']
+  headers: ['Model', 'Precision', 'Recall', 'F1 Score', 'AUC Score']
   random_seed: 44

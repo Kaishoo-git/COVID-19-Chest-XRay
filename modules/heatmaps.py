@@ -7,14 +7,23 @@ from sklearn.decomposition import PCA
 from matplotlib.colors import LinearSegmentedColormap
 from PIL import Image
 
-def generate_heatmap(model, test_dataloader):
+def find_img(model, test_dataloader, flag):
     """
-    Arguments: nn.module, DataLoader
-    returns: positive and negative heatmap overlays
+    Arguments: nn.module, DataLoader with batch_size = 1
+    returns: heatmap and image in numpy array
+    
+    note that this function uses a threshold of 0.5 
     """
-    pass
+    model.eval()
+    with torch.no_grad():
+        for inputs, labels in test_dataloader:
+            y_prob = torch.sigmoid(model(inputs))
+            y_pred = y_prob >= 0.5    # Will be using threshold of 0.5 for simplicity
+            if (y_pred == labels) == flag:
+                return inputs.squeeze(0).numpy()
+    return "No suitable image found, check model metrics"
 
-def vis_comparison(model, pos_img, neg_img, save_path = None):
+def vis_comparison(model, pos_img, neg_img):
     custom_cmap = LinearSegmentedColormap.from_list("black_blue", ["black", "blue"])
     fig, axes = plt.subplots(1, 4, figsize=(20, 6)) 
     pos = 0
@@ -22,20 +31,16 @@ def vis_comparison(model, pos_img, neg_img, save_path = None):
         for cam in ['gradcam', 'gradcampp']:
             img_rs, img_in = resize(img), tensorize_image(img).unsqueeze(0)
             if cam == 'gradcam':
-                heatmap = np.power(cv2.resize(get_gradcam(model, img_in), (img_rs.shape[1], img_rs.shape[0]), interpolation=cv2.INTER_LINEAR), 2)
+                heatmap = cv2.resize(get_gradcam(model, img_in), (img_rs.shape[1], img_rs.shape[0]), interpolation=cv2.INTER_LINEAR)
             else: 
-                heatmap = np.power(cv2.resize(get_gradcam_pp(model, img_in), (img_rs.shape[1], img_rs.shape[0]), interpolation=cv2.INTER_LINEAR), 2)
+                heatmap = cv2.resize(get_gradcam_pp(model, img_in), (img_rs.shape[1], img_rs.shape[0]), interpolation=cv2.INTER_LINEAR)
             axes[pos].imshow(img_rs, cmap = 'gray')
             axes[pos].imshow(heatmap, cmap = custom_cmap, alpha = 0.4)
             axes[pos].axis('off')
             pos += 1
 
-    if save_path:
-        plt.savefig(save_path, dpi=300)  
-        print(f"Plot saved to {save_path}")
-
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.show()
+    return plt
 
 def eigen_smooth(heatmap, n_components=1):
     flat_heatmap = heatmap.reshape(-1, 1)
