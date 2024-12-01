@@ -7,14 +7,14 @@ from torch.utils.data import DataLoader
 
 from modules.datasets import Covid19DataSet
 from modules.models import get_model
-from modules.metrics import get_metrics, plot_roc_auc, create_table
+from modules.metrics import get_metrics, plot_roc_auc,
 
 def load_model(model_class, config):
     MODELS_PATH = config['path']['model_dir']['weights']
     model_weight = f"{MODELS_PATH}{model_class[0]}.pth"
     try:
         model = get_model(model_class[1], weights = model_class[2])
-        model.load_state_dict(torch.load(model_weight))  
+        model.load_state_dict(torch.load(model_weight, map_location=torch.device('cpu')))  
         model.eval()  
         print(f"{model_class[0]} weights loaded from {model_weight}")
     except Exception as e:
