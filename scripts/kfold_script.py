@@ -66,30 +66,30 @@ def kfold_workflow():
     # save_model('resnet', resnet, config)
     # save_model_performance('resnet', resnet_p, config)
 
-    # # Train and save densenet models
-    weights = ['default', 'nih', 'chexpert', 'pc']
-    for weight in weights:
-        model = get_model('densenet', weights = weight)
-        model, model_p = train_model(model, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
-        save_model(f'densenet_{weight}', model, config)
-        save_model_performance(f'densenet_{weight}', model_p, config)
+    # Train and save densenet models
+    # weights = ['default', 'nih', 'chexpert', 'pc']
+    # for weight in weights:
+    #     model = get_model('densenet', weights = weight)
+    #     model, model_p = train_model(model, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
+    #     save_model(f'densenet_{weight}', model, config)
+    #     save_model_performance(f'densenet_{weight}', model_p, config)
 
-    # autoe = get_model('autoencoder', weights = None)
-    # autoekl, autoekl_p = train_autoencoder(autoe, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, LEARNING_RATE)
-    # save_model('autoencoderkl', autoekl, config)
-    # save_model_performance('autoencoderkl', autoekl_p, config)
-    # autoel21, autoel21_p = train_autoencoder_l21(autoe, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, LEARNING_RATE, ALPHA)
-    # save_model('autoencoderl21', autoel21, config)
-    # save_model_performance('autoencoderl21', autoel21_p, config)
+    autoe = get_model('autoencoder', weights = None)
+    autoekl, autoekl_p = train_autoencoder(autoe, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, LEARNING_RATE)
+    save_model('autoencoderkl', autoekl, config)
+    save_model_performance('autoencoderkl', autoekl_p, config)
+    autoel21, autoel21_p = train_autoencoder_l21(autoe, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, LEARNING_RATE, ALPHA)
+    save_model('autoencoderl21', autoel21, config)
+    save_model_performance('autoencoderl21', autoel21_p, config)
 
-    # convnetl21 = load_convnet_autoencod(config, True)
-    # convnetl21, convnetl21_p = train_model(convnetl21, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
-    # save_model('convnetl21', convnetl21, config)
-    # save_model_performance('convnetl21', convnetl21_p, config)
-    # convnetkl = load_convnet_autoencod(config, False)
-    # convnetkl, convnetkl_p = train_model(convnetkl, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
-    # save_model('convnetkl', convnetkl, config)
-    # save_model_performance('convnetkl', convnetkl_p, config)
+    convnetl21 = load_convnet_autoencod(config, True)
+    convnetl21, convnetl21_p = train_model(convnetl21, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
+    save_model('convnetl21', convnetl21, config)
+    save_model_performance('convnetl21', convnetl21_p, config)
+    convnetkl = load_convnet_autoencod(config, False)
+    convnetkl, convnetkl_p = train_model(convnetkl, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
+    save_model('convnetkl', convnetkl, config)
+    save_model_performance('convnetkl', convnetkl_p, config)
 
 if __name__ == "__main__":
     kfold_workflow()
