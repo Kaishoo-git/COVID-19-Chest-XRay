@@ -17,14 +17,8 @@ def preprocess_workflow():
     print("Downloading")
     with open(f"{DATASET_PATH}train.pkl", "wb") as f:
         pickle.dump(train, f)
-    # with open(f"{DATASET_PATH}val.pkl", "wb") as f:
-    #     pickle.dump(val, f)
     with open(f"{DATASET_PATH}test.pkl", "wb") as f:
         pickle.dump(test, f)
-
-    # dataset = process_all(data)
-    # with open(f"{DATASET_PATH}dataset.pkl", "wb") as f:
-    #     pickle.dump(dataset, f)
 
     print("Preprocessed datasets saved in data/preprocessed/")
 

@@ -58,11 +58,11 @@ def evaluate_workflow():
     train_loader, test_loader = get_loaders(BATCH_SIZE, NUM_WORKERS, config)
 
     # Modify this by looking at the models available at models/weights
-    # model_classes = [('convnet', 'convnet', None), ('convnet_unsampled', 'convnet', None)]
+    model_classes = [('convnet', 'convnet', None), ('convnet_unsampled', 'convnet', None)]
     # model_classes = [('convnet', 'convnet', None), ('resnet', 'resnet', 'default'), ('densenet_default', 'densenet', 'default')]
     # model_classes = [('densenet_default', 'densenet', 'default'), ('densenet_nih', 'densenet', 'nih'), ('densenet_chexpert', 'densenet', 'chexpert'), ('densenet_pc', 'densenet', 'pc')]
+    # model_classes = [('convnetkl', 'convnet_encoder', place_ae), ('convnetl21', 'convnet_encoder', place_ae)]
     place_ae = get_model('autoencoder', weights = None).encoder
-    model_classes = [('convnetkl', 'convnet_encoder', place_ae), ('convnetl21', 'convnet_encoder', place_ae)]
     models = {}
     rows = []
     for model_class in model_classes:

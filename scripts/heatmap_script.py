@@ -19,14 +19,16 @@ def explainable_workflow():
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=NUM_WORKERS)
 
     model_classes = [('convnet', 'convnet', None), ('resnet', 'resnet', 'default'), ('densenet_default', 'densenet', 'default')]
-    model = load_model(model_classes[2] ,config)
+    
+    # Change model_idx to get specific model
+    model_idx = 1
+    model = load_model(model_classes[model_idx] ,config)
     for params in model.parameters():
         params.requires_grad = True
     pimg = find_img(model, test_loader, True)
     nimg = find_img(model, test_loader, False)
-    # Get positive and negative image
 
-    save_path = f'{HEATMAP_PATH}{model_classes[2][0]}.png'
+    save_path = f'{HEATMAP_PATH}{model_classes[model_idx][0]}.png'
     vis = vis_comparison(model, pimg, nimg) 
     vis.savefig(save_path, dpi = 300)
     print(f"Heatmap saved to {save_path}")
