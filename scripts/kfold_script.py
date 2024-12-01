@@ -42,6 +42,7 @@ def kfold_workflow():
     NUM_EPOCHS = config['training']['num_epochs']
     LEARNING_RATE = config['training']['learning_rate']
     RANDOM_STATE = config['misc']['random_seed']
+    ALPHA = config['training']['alpha']
 
     DATASET_PATH = config['path']['dataset']['preprocessed']
     
@@ -76,7 +77,7 @@ def kfold_workflow():
     autoekl, autoekl_p = train_autoencoder(autoe, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, LEARNING_RATE)
     save_model('autoencoderkl', autoekl, config)
     save_model_performance('autoencoderkl', autoekl_p, config)
-    autoel21, autoel21_p = train_autoencoder_l21(autoe, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, LEARNING_RATE)
+    autoel21, autoel21_p = train_autoencoder_l21(autoe, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, LEARNING_RATE, ALPHA)
     save_model('autoencoderl21', autoel21, config)
     save_model_performance('autoencoderl21', autoel21_p, config)
 

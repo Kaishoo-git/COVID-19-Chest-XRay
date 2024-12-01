@@ -132,6 +132,7 @@ def train_autoencoder(model, dataset, k, batch_size, epochs, random_state, num_w
             print(f"Validation Loss for Fold {fold + 1}: {val_loss:.4f}")
 
     return model, validation_losses
+
 def train_autoencoder_l21(model, dataset, k, batch_size, epochs, random_state, num_workers, learning_rate, alpha):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = model.to(device)  # Move model to the device
