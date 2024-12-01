@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 from modules.datasets import Covid19DataSet
 from modules.models import get_model
-from modules.metrics import get_metrics, plot_roc_auc,
+from modules.metrics import get_metrics, plot_roc_auc
 
 def load_model(model_class, config):
     MODELS_PATH = config['path']['model_dir']['weights']
