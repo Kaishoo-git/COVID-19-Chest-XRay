@@ -26,7 +26,7 @@ def load_convnet_autoencod(config, flag):
     WEIGHTS_PATH = config['path']['model_dir']['weights']
     autoencoder = get_model('autoencoder', weights = None)
     if flag:
-        autoencoder.load_state_dict(torch.load(f'{WEIGHTS_PATH}autoencoder121.pth'))
+        autoencoder.load_state_dict(torch.load(f'{WEIGHTS_PATH}autoencoderl21.pth'))
     else:
         autoencoder.load_state_dict(torch.load(f'{WEIGHTS_PATH}autoencoderkl.pth'))
     encoder = autoencoder.encoder
