@@ -1,0 +1,9 @@
+Model,Precision,Recall,F1 Score,AUC Score
+densenet_default (train),0.7883,0.9038,0.8421,0.836
+densenet_default (test),0.7265,0.8252,0.7727,0.7216
+densenet_nih (train),0.7426,0.9414,0.8303,0.851
+densenet_nih (test),0.7132,0.8932,0.7931,0.6965
+densenet_chexpert (train),0.7159,0.8117,0.7608,0.7
+densenet_chexpert (test),0.693,0.767,0.7281,0.6391
+densenet_pc (train),0.7427,0.6402,0.6876,0.6857
+densenet_pc (test),0.7647,0.6311,0.6915,0.6599

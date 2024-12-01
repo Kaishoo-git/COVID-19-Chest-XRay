@@ -150,24 +150,40 @@ class SparseAutoEncoder(torch.nn.Module):
     def __init__(self):
         super(SparseAutoEncoder, self).__init__()
         self.encoder = torch.nn.Sequential(
-            torch.nn.Conv2d(1, 32, kernel_size=3, stride=1),  
+            torch.nn.Conv2d(1, 4, kernel_size=3, stride=1, padding=1),
+            torch.nn.BatchNorm2d(4),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(32, 64, kernel_size=3, stride=1),  
+            torch.nn.MaxPool2d(2, 2),  
+            
+            torch.nn.Conv2d(4, 16, kernel_size=3, stride=1, padding=1),
+            torch.nn.BatchNorm2d(16),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(64, 128, kernel_size=3, stride=1), 
+            torch.nn.MaxPool2d(2, 2),  
+            
+            torch.nn.Conv2d(16, 64, kernel_size=3, stride=1, padding=1),
+            torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(),
-            torch.nn.Conv2d(128, 256, kernel_size=3, stride=1), 
+            
+            torch.nn.Conv2d(64, 256, kernel_size=3, stride=1, padding=1),
+            torch.nn.BatchNorm2d(256),
             torch.nn.ReLU()
         )
+
         self.decoder = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(256, 128, kernel_size=3, stride=1), 
+            torch.nn.ConvTranspose2d(256, 64, kernel_size=3, stride=1, padding=1),
+            torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(),
-            torch.nn.ConvTranspose2d(128, 64, kernel_size=3, stride=1),
+            
+            torch.nn.ConvTranspose2d(64, 16, kernel_size=3, stride=1, padding=1),
+            torch.nn.BatchNorm2d(16),
             torch.nn.ReLU(),
-            torch.nn.ConvTranspose2d(64, 32, kernel_size=3, stride=1), 
+            
+            torch.nn.ConvTranspose2d(16, 4, kernel_size=3, stride=1, padding=1),
+            torch.nn.BatchNorm2d(4),
             torch.nn.ReLU(),
-            torch.nn.ConvTranspose2d(32, 1, kernel_size=3, stride=1),  
-            torch.nn.Sigmoid(),  
+            
+            torch.nn.ConvTranspose2d(4, 1, kernel_size=3, stride=1, padding=1),
+            torch.nn.Sigmoid()  # To normalize the output between 0 and 1
         )
 
     def forward(self, x):

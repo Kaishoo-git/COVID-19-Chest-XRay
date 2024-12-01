@@ -1,0 +1,7 @@
+Model,Precision,Recall,F1 Score,AUC Score
+convnet (train),0.8209,0.4603,0.5898,0.752
+convnet (test),0.7812,0.4854,0.5988,0.646
+resnet (train),0.7786,0.8536,0.8144,0.8211
+resnet (test),0.7593,0.7961,0.7773,0.7434
+densenet_default (train),0.7883,0.9038,0.8421,0.836
+densenet_default (test),0.7265,0.8252,0.7727,0.7216
