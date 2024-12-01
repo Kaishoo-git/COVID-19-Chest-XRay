@@ -170,20 +170,18 @@ class SparseAutoEncoder(torch.nn.Module):
         )
 
         self.decoder = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(256, 64, kernel_size=3, stride=1, padding=1),
+            torch.nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True), 
+            torch.nn.Conv2d(256, 128, kernel_size=3, padding=1),
+            torch.nn.BatchNorm2d(128),
+            torch.nn.ReLU(),
+
+            torch.nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True), 
+            torch.nn.Conv2d(128, 64, kernel_size=3, padding=1),
             torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(),
-            
-            torch.nn.ConvTranspose2d(64, 16, kernel_size=3, stride=1, padding=1),
-            torch.nn.BatchNorm2d(16),
-            torch.nn.ReLU(),
-            
-            torch.nn.ConvTranspose2d(16, 4, kernel_size=3, stride=1, padding=1),
-            torch.nn.BatchNorm2d(4),
-            torch.nn.ReLU(),
-            
-            torch.nn.ConvTranspose2d(4, 1, kernel_size=3, stride=1, padding=1),
-            torch.nn.Sigmoid()  # To normalize the output between 0 and 1
+
+            torch.nn.Conv2d(64, 1, kernel_size=3, padding=1),  
+            torch.nn.Sigmoid()  
         )
 
     def forward(self, x):
