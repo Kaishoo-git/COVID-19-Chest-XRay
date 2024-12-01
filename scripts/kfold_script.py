@@ -22,12 +22,13 @@ def save_model(model_name, trained_model, config):
     torch.save(trained_model.state_dict(), model_path)
     print(f"{model_name} weights saved to {model_path}")
 
-def load_convnet_autoencod(config):
+def load_convnet_autoencod(config, flag):
     WEIGHTS_PATH = config['path']['model_dir']['weights']
     autoencoder = get_model('autoencoder', weights = None)
-
-    autoencoder.load_state_dict(torch.load(f'{WEIGHTS_PATH}autoencoder121.pth'))
-
+    if flag:
+        autoencoder.load_state_dict(torch.load(f'{WEIGHTS_PATH}autoencoder121.pth'))
+    else:
+        autoencoder.load_state_dict(torch.load(f'{WEIGHTS_PATH}autoencoderkl.pth'))
     encoder = autoencoder.encoder
     model = get_model('convet_encoder', weights = encoder)
     return model
@@ -81,10 +82,14 @@ def kfold_workflow():
     save_model('autoencoderl21', autoel21, config)
     save_model_performance('autoencoderl21', autoel21_p, config)
 
-    convnetae = load_convnet_autoencod(config)
-    convnetae, convnetae_p = train_model(convnetae, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
-    save_model('convnetae', convnetae, config)
-    save_model_performance('convnetae', convnetae_p, config)
+    convnetl21 = load_convnet_autoencod(config, True)
+    convnetl21, convnetl21_p = train_model(convnetl21, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
+    save_model('convnetl21', convnetl21, config)
+    save_model_performance('convnetl21', convnetl21_p, config)
+    convnetkl = load_convnet_autoencod(config, False)
+    convnetkl, convnetkl_p = train_model(convnetkl, train_dataset, K_FOLDS, BATCH_SIZE, NUM_EPOCHS, RANDOM_STATE, NUM_WORKERS, True, LEARNING_RATE)
+    save_model('convnetkl', convnetkl, config)
+    save_model_performance('convnetkl', convnetkl_p, config)
 
 if __name__ == "__main__":
     kfold_workflow()
