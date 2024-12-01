@@ -179,6 +179,8 @@ class ConvNetWithEncoder(BaseModel):
     def __init__(self, encoder):
         super(ConvNetWithEncoder, self).__init__()
         self.features = encoder
+        for params in self.features.parameters():
+            params.requires_grad = False
         self.avgpool = torch.nn.AdaptiveAvgPool2d((1, 1))
         self.classifier = torch.nn.Sequential(
             torch.nn.Flatten(),
