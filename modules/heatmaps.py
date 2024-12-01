@@ -20,7 +20,7 @@ def find_img(model, test_dataloader, flag):
             y_prob = torch.sigmoid(model(inputs))
             y_pred = y_prob >= 0.5    # Will be using threshold of 0.5 for simplicity
             if (y_pred == labels) == flag:
-                return inputs.squeeze(0).numpy()
+                return inputs.squeeze(0).squeeze(0).numpy()
     return "No suitable image found, check model metrics"
 
 def vis_comparison(model, pos_img, neg_img):
