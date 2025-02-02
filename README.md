@@ -2,6 +2,9 @@ This is a project on using classification models on a visual dataset.
 ### Repository Link
 [Covid19-Chest-XRay](https://github.com/Kaishoo-git/COVID-19-Chest-XRay)
 
+### Results 
+[Google Slides](https://docs.google.com/presentation/d/1_slouAIcIl-NpzyisdY78LP2o4_Mr8cLlrTmBbe4nUQ/edit?usp=sharing)
+
 ```
 covid19_chest_xray/      
 ├── config/   
